@@ -1208,6 +1208,75 @@ body { background: transparent; }
 .save-meta { margin-top: 6px; font-size: 10px; letter-spacing: .06em; color: var(--ink-3); }
 .save-actions { display: flex; gap: 8px; margin-top: 10px; }
 
+/* ---- 手机 ---- */
+.phone-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 4px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+}
+.phone-avatar {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--gold);
+  font-size: 14px;
+  letter-spacing: .05em;
+}
+.phone-who { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.phone-name { font-size: 13px; letter-spacing: .08em; }
+.phone-preview {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--ink-3);
+}
+.phone-dot {
+  margin-left: auto;
+  min-width: 18px;
+  padding: 2px 5px;
+  border-radius: 9px;
+  background: var(--gold);
+  color: var(--bg);
+  font-size: 10px;
+  text-align: center;
+}
+.phone-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.phone-bar .mini.push { margin-left: auto; }
+.phone-log { display: flex; flex-direction: column; gap: 9px; padding: 10px 0 18px; min-height: 40vh; }
+.bubble { max-width: 78%; padding: 9px 12px; border-radius: 3px; font-size: 13px; line-height: 1.75; }
+.bubble.me { align-self: flex-end; background: rgba(201, 168, 106, .16); border: 1px solid rgba(201, 168, 106, .28); }
+.bubble.them { align-self: flex-start; background: rgba(255, 255, 255, .035); border: 1px solid var(--line); }
+.phone-input { display: flex; gap: 8px; }
+.phone-input input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: rgba(255, 255, 255, .03);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 13px;
+  outline: none;
+}
+.phone-input input:focus { border-color: var(--gold-soft); }
+.phone-input button { padding: 0 18px; }
+
 .log-item {
   padding: 14px 0;
   border-bottom: 1px solid rgba(201, 168, 106, .1);

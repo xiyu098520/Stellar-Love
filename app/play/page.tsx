@@ -8,6 +8,7 @@ import { activeBlocks, buildMessages, buildSummaryMessages, touchHits } from '@/
 import { applyDelta, clampAttr, emptyState, seedState, snapDelta, stageOf } from '@/lib/affinity';
 import { advance, clockShort, clockText, clockValue, initClock } from '@/lib/clock';
 import { chapterLabel, chapterTurns, numberedTurns } from '@/lib/chapter';
+import { takePendingPush } from '@/lib/phone';
 import {
   activeProfile,
   addVoiceClip,
@@ -233,6 +234,8 @@ function PlayInner() {
   const [review, setReview] = useState(false);
   const [clips, setClips] = useState<Record<string, VoiceClip>>({});
   const bottomRef = useRef<HTMLDivElement>(null);
+  /** 手机推送只自动跑一次 */
+  const pushHandled = useRef(false);
   /** 最后一段正文里已经点开了多少节拍；读到末尾才放选项和输入框 */
   const [seen, setSeen] = useState(9999);
 
@@ -591,6 +594,23 @@ function PlayInner() {
     await run(save);
   }
 
+  // 从手机按了「推送剧情」回来：把那段聊天当成这一回合她的输入，直接接着写
+  useEffect(() => {
+    if (!save || !world || !settings || busy || pushHandled.current) return;
+    if (params.get('push') !== '1') return;
+    pushHandled.current = true;
+    const text = takePendingPush(save.id);
+    if (!text) {
+      router.replace(`/play?save=${save.id}`);
+      return;
+    }
+    const userTurn: Turn = { role: 'user', text };
+    const next: Save = { ...save, turns: [...save.turns, userTurn], updatedAt: Date.now() };
+    setSave(next);
+    router.replace(`/play?save=${save.id}`);
+    void run(next);
+  }, [save, world, settings, busy, params, run, router]);
+
   async function send(text: string) {
     if (!save || busy || !text.trim()) return;
     const userTurn: Turn = { role: 'user', text: text.trim() };
@@ -714,10 +734,19 @@ function PlayInner() {
               回主线
             </button>
           )}
+          {!readMode && (
+            <Link
+              href={`/phone?save=${save.id}`}
+              className="back"
+              style={{ marginLeft: save.kind === 'route' ? 0 : 'auto', marginRight: 14 }}
+            >
+              手机
+            </Link>
+          )}
           <Link
             href="/ledger"
             className="back"
-            style={{ marginLeft: save.kind === 'route' && !readMode ? 0 : 'auto', marginRight: 14 }}
+            style={{ marginLeft: !readMode ? 0 : 'auto', marginRight: 14 }}
           >
             结算
           </Link>
