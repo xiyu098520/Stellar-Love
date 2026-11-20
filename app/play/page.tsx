@@ -34,6 +34,7 @@ function applySettle(
   raw: string,
   turnIndex: number,
   injected: string[],
+  isMain: boolean,
 ): GameState {
   const next: GameState = {
     ...state,
@@ -62,7 +63,9 @@ function applySettle(
     const c = world.characters.find(x => x.name === who || x.id === who);
     const id = c?.id || `unknown:${who}`;
     const before = next.affinity[id] ?? 0;
-    const after = applyDelta(before, delta);
+    const raw = applyDelta(before, delta);
+    // 主线里好感最多推到 30，再往上的升温留给个人线；已经更高的不回落
+    const after = isMain && delta > 0 ? Math.min(Math.max(30, before), raw) : raw;
     next.affinity[id] = after;
     push({
       characterId: id,
@@ -279,6 +282,7 @@ function PlayInner() {
           JSON.stringify(out.settle ?? null),
           nextSave.turns.length,
           activeBlocks(world, seeded).map(b => b.title),
+          nextSave.kind === 'main',
         );
 
         const done: Save = {

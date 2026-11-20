@@ -56,6 +56,20 @@ function chapterText(world: World): string {
       : '还没有给出核心线索：从世界观和开局里自己找出一个能长期追下去的事，把它当成主线核心，不要凭空结束它。',
     '不要写「第几章」「本章完」这类字样，也不要在正文里宣告阶段结束。',
     '需要换地方、换日子的时候，让事情自己把场景带过去：一件办完了，下一件自然浮上来。',
+    '主线是公开面：不管好感多高，他在街上、在公司、在别人面前只表现到熟识——不牵手、不拥抱、不亲吻。私人时间留给个人线。',
+    '主线里好感最多推到 30；再往上的升温只能在个人线里发生。',
+  ].join('\n');
+}
+
+/** 亲密尺度：按好感档位管身体接触到哪一步 */
+function intimacyText(): string {
+  return [
+    '【亲密尺度】',
+    '0 到 30：只到目光、擦肩、递东西时指尖碰到。',
+    '30 到 50：可以拥抱、牵手、靠着肩膀，但点到为止。',
+    '50 到 80：会有情不自禁的亲吻，可以写，但不要展开。',
+    '80 到 100：已经确认关系，才允许更进一步。',
+    '不到相应档位，一处都不许越界；到了也要留在这一档内，不要抢下一步。',
   ].join('\n');
 }
 
@@ -243,7 +257,7 @@ function stateText(world: World, save: Save): string {
   const rows = Object.entries(st.affinity || {}).map(([id, v]) => {
     const c = world.characters.find(x => x.id === id);
     const name = c?.name || id;
-    const stage = stageOf(v);
+    const stage = stageOf(save.kind === 'main' ? Math.min(30, v) : v);
     const extra = (c?.attrs || [])
       .map(a => `${a.name} ${st.charAttrs?.[id]?.[a.id] ?? a.init}`)
       .join('，');
@@ -340,6 +354,8 @@ ${attrDefsText(world) ? `\n${attrDefsText(world)}` : ''}
 时间和地点要接着上一回合，不许跳回白天、不许换城市。
 
 ${chapterText(world)}
+
+${intimacyText()}
 
 ${SETTLE_RULE}
 
