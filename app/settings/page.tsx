@@ -3,20 +3,18 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { activeProfile, loadSettings, loadWallpaper, loadWorld, saveWallpaper } from '@/lib/store';
-import type { Settings, World } from '@/lib/types';
+import { activeProfile, loadSettings, loadWallpaper, saveWallpaper } from '@/lib/store';
+import type { Settings } from '@/lib/types';
 
 export default function SettingsPage() {
   const router = useRouter();
   const [s, setS] = useState<Settings>({ profiles: [], active: {} });
-  const [world, setWorld] = useState<World | null>(null);
   const [wall, setWall] = useState({ url: '', name: '' });
   const [msg, setMsg] = useState('');
   const wallInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setS(loadSettings());
-    setWorld(loadWorld());
     setWall(loadWallpaper());
   }, []);
 
@@ -67,16 +65,6 @@ export default function SettingsPage() {
           <Link href="/settings/api" className="menu-row">
             <span className="k">接口与预设</span>
             <span className="v">{storyOn ? `剧情 · ${story.model}` : '未接'}</span>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4">
-              <path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </Link>
-
-          <Link href="/settings/world" className="menu-row">
-            <span className="k">剧本</span>
-            <span className="v">
-              {world ? `${world.title} · ${world.characters.length} 人` : '未导入'}
-            </span>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4">
               <path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
             </svg>

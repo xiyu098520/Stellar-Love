@@ -126,7 +126,7 @@ export default function WorldPage() {
     <main className="page">
       <div className="sheet">
         <div className="topbar">
-          <button className="back" onClick={() => router.push('/settings')}>返回</button>
+          <button className="back" onClick={() => router.push('/')}>返回</button>
           <div className="title">剧本</div>
           <div className="right">{msg}</div>
         </div>
