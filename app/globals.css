@@ -32,7 +32,7 @@ input, textarea, select { font-family: inherit; }
 .page {
   position: relative;
   min-height: 100dvh;
-  overflow: hidden;
+  overflow-x: clip;
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
   background: linear-gradient(180deg, #12101a 0%, #0d0b10 45%, #0b0a0f 100%);
@@ -155,7 +155,7 @@ input, textarea, select { font-family: inherit; }
   padding: 18px 20px;
   border-bottom: 1px solid rgba(201, 168, 106, .14);
   position: sticky;
-  top: 0;
+  top: env(safe-area-inset-top);
   background: rgba(13, 11, 16, .94);
   z-index: 5;
 }
@@ -1346,4 +1346,15 @@ body { background: transparent; }
   font-size: 12px;
   line-height: 1.7;
   word-break: break-all;
+}
+
+/* 隐藏滚动条，只保留滚动 */
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+*::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
 }
