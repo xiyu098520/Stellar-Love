@@ -1,6 +1,6 @@
 'use client';
 
-import type { Save, Settings, World } from './types';
+import type { ApiKind, ApiProfile, Save, Settings, World } from './types';
 
 const DB_NAME = 'stellar-love';
 const DB_VERSION = 1;
@@ -74,15 +74,89 @@ export async function delSave(id: string): Promise<void> {
   });
 }
 
-export function loadSettings(): Settings {
-  if (typeof window === 'undefined') {
-    return { baseUrl: '', apiKey: '', model: '' };
+export const API_KINDS: ApiKind[] = ['story', 'assistant', 'tts', 'image'];
+
+export function blankProfile(kind: ApiKind): ApiProfile {
+  const base: ApiProfile = {
+    id: newId('api'),
+    kind,
+    name: '默认',
+    baseUrl: '',
+    apiKey: '',
+    model: '',
+  };
+  if (kind === 'story') return { ...base, temperature: 0.9 };
+  if (kind === 'assistant') return { ...base, temperature: 0.3 };
+  if (kind === 'tts') {
+    return {
+      ...base,
+      baseUrl: 'https://api.elevenlabs.io/v1',
+      model: 'eleven_multilingual_v2',
+      speed: 1,
+      lang: 'zh',
+    };
   }
+  return { ...base, size: '1024x1536' };
+}
+
+/** 补齐缺失的类型，保证每一类都至少有一套 */
+function normalize(s: Settings): Settings {
+  const profiles = [...(s.profiles || [])];
+  const active = { ...(s.active || {}) };
+  for (const kind of API_KINDS) {
+    const own = profiles.filter(p => p.kind === kind);
+    if (!own.length) {
+      const p = blankProfile(kind);
+      profiles.push(p);
+      active[kind] = p.id;
+    } else if (!own.some(p => p.id === active[kind])) {
+      active[kind] = own[0].id;
+    }
+  }
+  return { ...s, profiles, active };
+}
+
+export function loadSettings(): Settings {
+  const empty: Settings = { profiles: [], active: {} };
+  if (typeof window === 'undefined') return normalize(empty);
   try {
     const raw = localStorage.getItem(LS_SETTINGS);
-    if (raw) return JSON.parse(raw) as Settings;
+    if (raw) {
+      const p = JSON.parse(raw) as Settings & {
+        baseUrl?: string;
+        apiKey?: string;
+        model?: string;
+        temperature?: number;
+      };
+      // 旧版本：单套配置，搬到「剧情」里当默认预设
+      if (!Array.isArray(p.profiles)) {
+        const legacy = p.baseUrl || p.apiKey || p.model;
+        const first = blankProfile('story');
+        if (legacy) {
+          first.name = '默认';
+          first.baseUrl = p.baseUrl || '';
+          first.apiKey = p.apiKey || '';
+          first.model = p.model || '';
+          first.temperature = p.temperature ?? 0.9;
+        }
+        return normalize({
+          profiles: [first],
+          active: { story: first.id },
+          voiceEnabled: p.voiceEnabled,
+          wallpaper: p.wallpaper,
+          wallpaperName: p.wallpaperName,
+        });
+      }
+      return normalize(p);
+    }
   } catch {}
-  return { baseUrl: '', apiKey: '', model: '' };
+  return normalize(empty);
+}
+
+/** 取某一类当前在用的那套 */
+export function activeProfile(s: Settings, kind: ApiKind): ApiProfile {
+  const list = s.profiles.filter(p => p.kind === kind);
+  return list.find(p => p.id === s.active[kind]) || list[0] || blankProfile(kind);
 }
 
 export function saveSettings(s: Settings): void {

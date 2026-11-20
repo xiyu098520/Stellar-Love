@@ -1,13 +1,14 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { loadSettings, loadWorld, saveSettings, saveWorld } from '@/lib/store';
+import { activeProfile, loadSettings, loadWorld, saveSettings, saveWorld } from '@/lib/store';
 import type { Settings, World } from '@/lib/types';
 
 export default function SettingsPage() {
   const router = useRouter();
-  const [s, setS] = useState<Settings>({ baseUrl: '', apiKey: '', model: '' });
+  const [s, setS] = useState<Settings>({ profiles: [], active: {} });
   const [world, setWorld] = useState<World | null>(null);
   const [msg, setMsg] = useState('');
   const worldInput = useRef<HTMLInputElement>(null);
@@ -17,16 +18,6 @@ export default function SettingsPage() {
     setS(loadSettings());
     setWorld(loadWorld());
   }, []);
-
-  function patch(p: Partial<Settings>) {
-    setS(prev => ({ ...prev, ...p }));
-  }
-
-  function persist() {
-    saveSettings(s);
-    setMsg('已保存');
-    setTimeout(() => setMsg(''), 1600);
-  }
 
   async function importWorld(file: File) {
     try {
@@ -82,14 +73,11 @@ export default function SettingsPage() {
     setMsg('壁纸已更换');
   }
 
-  const wall = s.wallpaper;
+  const story = activeProfile(s, 'story');
+  const storyOn = !!(story.baseUrl && story.model);
 
   return (
     <main className="page">
-      <div
-        className={`wallpaper${wall ? '' : ' default'}`}
-        style={wall ? { backgroundImage: `url(${wall})` } : undefined}
-      />
       <div className="sheet">
         <div className="topbar">
           <button className="back" onClick={() => router.push('/')}>返回</button>
@@ -98,49 +86,13 @@ export default function SettingsPage() {
         </div>
 
         <div className="body">
-          <div className="section-title">接口</div>
-
-          <div className="field">
-            <label>API 地址</label>
-            <input
-              value={s.baseUrl}
-              onChange={e => patch({ baseUrl: e.target.value })}
-              placeholder="https://your-proxy.example.com/v1"
-            />
-            <div className="tip">填到 /v1 为止，程序会自动接 /chat/completions。</div>
-          </div>
-
-          <div className="field">
-            <label>密钥</label>
-            <input
-              value={s.apiKey}
-              onChange={e => patch({ apiKey: e.target.value })}
-              placeholder="sk-..."
-              type="password"
-            />
-            <div className="tip">只存在这台设备的浏览器里，不会上传到别处。</div>
-          </div>
-
-          <div className="field">
-            <label>模型</label>
-            <input
-              value={s.model}
-              onChange={e => patch({ model: e.target.value })}
-              placeholder="gemini-3.8-flash"
-            />
-          </div>
-
-          <div className="field">
-            <label>温度（0 - 2）</label>
-            <input
-              value={String(s.temperature ?? 0.9)}
-              onChange={e => patch({ temperature: Number(e.target.value) || 0 })}
-              placeholder="0.9"
-            />
-            <div className="tip">越高越发散，恋爱向建议 0.85 到 1.0。</div>
-          </div>
-
-          <button className="btn" onClick={persist}>保存</button>
+          <Link href="/settings/api" className="menu-row">
+            <span className="k">接口与预设</span>
+            <span className="v">{storyOn ? `剧情 · ${story.model}` : '未接'}</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4">
+              <path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </Link>
 
           <div className="section-title">剧本</div>
           <div className="muted">

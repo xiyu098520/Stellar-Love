@@ -61,11 +61,31 @@ export type Save = {
   updatedAt: number;
 };
 
-export type Settings = {
+/** 四类接口：正文 / 助手归总 / 语音朗读 / 图像 */
+export type ApiKind = 'story' | 'assistant' | 'tts' | 'image';
+
+/** 一套接口配置，可存多套当预设用 */
+export type ApiProfile = {
+  id: string;
+  kind: ApiKind;
+  name: string;
   baseUrl: string;
   apiKey: string;
   model: string;
   temperature?: number;
+  /** 语音 */
+  voiceId?: string;
+  speed?: number;
+  lang?: 'zh' | 'ja';
+  tone?: string;
+  /** 图像 */
+  size?: string;
+};
+
+export type Settings = {
+  profiles: ApiProfile[];
+  /** 每一类当前用哪一套 */
+  active: Partial<Record<ApiKind, string>>;
   voiceEnabled?: boolean;
   wallpaper?: string;
   wallpaperName?: string;

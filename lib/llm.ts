@@ -1,6 +1,6 @@
 'use client';
 
-import type { Settings } from './types';
+import type { ApiProfile } from './types';
 
 export type ChatMessage = { role: 'system' | 'user' | 'assistant'; content: string };
 
@@ -12,7 +12,7 @@ function endpoint(baseUrl: string): string {
 }
 
 export async function chat(
-  settings: Settings,
+  settings: Pick<ApiProfile, 'baseUrl' | 'apiKey' | 'model' | 'temperature'>,
   messages: ChatMessage[],
   opts: { maxTokens?: number; json?: boolean } = {},
 ): Promise<string> {

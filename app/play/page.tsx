@@ -4,7 +4,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { chat, parseJSON } from '@/lib/llm';
 import { buildMessages } from '@/lib/prompt';
-import { getSave, loadSettings, loadWorld, putSave } from '@/lib/store';
+import { activeProfile, getSave, loadSettings, loadWorld, putSave } from '@/lib/store';
 import type { Save, Segment, Settings, Turn, World } from '@/lib/types';
 
 type ModelOut = {
@@ -51,7 +51,7 @@ function PlayInner() {
       setErr('');
       try {
         const messages = buildMessages(world, nextSave);
-        const raw = await chat(settings, messages, { json: true, maxTokens: 2400 });
+        const raw = await chat(activeProfile(settings, 'story'), messages, { json: true, maxTokens: 2400 });
         let out: ModelOut;
         try {
           out = parseJSON<ModelOut>(raw);
