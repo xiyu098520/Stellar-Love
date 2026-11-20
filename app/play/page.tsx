@@ -8,6 +8,7 @@ import { activeBlocks, buildMessages, buildSummaryMessages, touchHits } from '@/
 import { applyDelta, clampAttr, emptyState, seedState, snapDelta, stageOf } from '@/lib/affinity';
 import { advance, clockShort, clockText, clockValue, initClock } from '@/lib/clock';
 import { chapterLabel, chapterTurns, numberedTurns } from '@/lib/chapter';
+import { makeRouteSave } from '@/lib/routes';
 import { takePendingPush } from '@/lib/phone';
 import {
   activeProfile,
@@ -15,6 +16,7 @@ import {
   delVoiceClip,
   getSave,
   latestSaveOf,
+  listSaves,
   listVoiceClips,
   loadSettings,
   loadWallpaper,
@@ -240,6 +242,8 @@ function PlayInner() {
   const [clips, setClips] = useState<Record<string, VoiceClip>>({});
   /** 钱包跨存档共用，进页面时读一次，花完再写回 */
   const [money, setMoney] = useState(0);
+  /** 主线好感到了 30，这一回合出现邀请 */
+  const [invite, setInvite] = useState<Character | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   /** 手机推送只自动跑一次 */
   const pushHandled = useRef(false);
@@ -280,6 +284,14 @@ function PlayInner() {
 
   const lastAssistant = [...(save?.turns || [])].reverse().find(t => t.role === 'assistant');
   const choices = lastAssistant?.choices || [];
+  /** 快到的约定：到点前两小时内提醒 */
+  const dueAppt = (() => {
+    if (!save?.state?.clock || save.kind !== 'main') return undefined;
+    const now = clockValue(save.state.clock);
+    return (save.state.appointments || []).find(
+      a => !a.done && clockValue(a.clock) - now <= 120,
+    );
+  })();
 
   /** 只读回放只看这一章；平时看全部 */
   const entries: NumberedTurn[] = save
@@ -630,6 +642,19 @@ function PlayInner() {
           setMoney(wallet.money);
         }
         await putSave(done);
+        // 主线里好感到了 30、他这一回合在场，就问一次要不要去见他
+        if (done.kind === 'main' && world && out?.settle?.who) {
+          const c = world.characters.find(x => x.role !== 'npc' && x.name === out?.settle?.who);
+          const value = c ? done.state?.affinity?.[c.id] ?? 0 : 0;
+          if (c && value >= 30) {
+            const rows = await listSaves();
+            const hasRoute = rows.some(s => s.kind === 'route' && s.routeOf === c.id && s.worldId === world.id);
+            const idx = done.turns.filter(t => t.role === 'assistant').length;
+            const readyAt = done.state?.inviteAt?.[c.id] ?? 0;
+            if (!hasRoute && readyAt <= idx) setInvite(c);
+            else setInvite(null);
+          }
+        }
         setSeen(1);
         setSave(done);
         const last = nextSave.turns[nextSave.turns.length - 1];
@@ -650,6 +675,92 @@ function PlayInner() {
   async function begin() {
     if (!save) return;
     await run(save);
+  }
+
+  /** 去见他：从这一刻切出个人线 */
+  async function acceptInvite() {
+    if (!save || !world || !invite) return;
+    const route = makeRouteSave(world, save, invite);
+    await putSave(route);
+    router.push(`/play?save=${route.id}`);
+  }
+
+  /** 改约：扣 1，过两天同一时间再见，写进待办 */
+  async function postponeInvite() {
+    if (!save || !invite) return;
+    const c = invite;
+    const base = save.state || emptyState();
+    const src = base.clock || initClock(loadWorld() as World);
+    const dt = new Date(Date.UTC(src.y, src.m - 1, src.d + 2, 19, 0));
+    const clock = { y: dt.getUTCFullYear(), m: dt.getUTCMonth() + 1, d: dt.getUTCDate(), min: 19 * 60 };
+    const appt = {
+      id: newId('ap'),
+      characterId: c.id,
+      characterName: c.name,
+      turnIndex: save.turns.filter(t => t.role === 'assistant').length,
+      clock,
+      place: base.place,
+      note: '上次改约，说好这天再见',
+    };
+    const next: Save = {
+      ...save,
+      state: {
+        ...base,
+        affinity: { ...base.affinity, [c.id]: applyDelta(base.affinity?.[c.id] ?? 0, -1) },
+        appointments: [...(base.appointments || []), appt],
+      },
+      updatedAt: Date.now(),
+    };
+    await putSave(next);
+    setSave(next);
+    setInvite(null);
+  }
+
+  /** 婉拒：扣 5，十回合后再来问 */
+  async function declineInvite() {
+    if (!save || !invite) return;
+    const c = invite;
+    const base = save.state || emptyState();
+    const idx = save.turns.filter(t => t.role === 'assistant').length;
+    const next: Save = {
+      ...save,
+      state: {
+        ...base,
+        affinity: { ...base.affinity, [c.id]: applyDelta(base.affinity?.[c.id] ?? 0, -5) },
+        inviteAt: { ...(base.inviteAt || {}), [c.id]: idx + 10 },
+      },
+      updatedAt: Date.now(),
+    };
+    await putSave(next);
+    setSave(next);
+    setInvite(null);
+  }
+
+  /** 到点了的约定，直接进他的线 */
+  async function goAppointment(apptId: string) {
+    if (!save || !world) return;
+    const appt = (save.state?.appointments || []).find(a => a.id === apptId && !a.done);
+    const c = appt ? world.characters.find(x => x.id === appt.characterId) : undefined;
+    if (!appt || !c) return;
+    const route = makeRouteSave(world, save, c);
+    route.state = {
+      ...(route.state || emptyState()),
+      clock: appt.clock,
+      time: clockText(appt.clock),
+      place: appt.place || route.state?.place,
+    };
+    const base = save.state || emptyState();
+    const nextMain: Save = {
+      ...save,
+      state: {
+        ...base,
+        appointments: (base.appointments || []).map(a => (a.id === appt.id ? { ...a, done: true } : a)),
+      },
+      updatedAt: Date.now(),
+    };
+    await putSave(route);
+    await putSave(nextMain);
+    router.push(`/play?save=${route.id}`);
   }
 
   // 从手机按了「推送剧情」回来：把那段聊天当成这一回合她的输入，直接接着写
@@ -888,6 +999,26 @@ function PlayInner() {
 
       {started && !reading && !readMode && (
         <div className="dock">
+          {dueAppt && (
+            <div className="choices">
+              <button className="choice" onClick={() => goAppointment(dueAppt.id)}>
+                今天和{dueAppt.characterName}有约 · 去赴约
+              </button>
+            </div>
+          )}
+          {invite && (
+            <div className="choices">
+              <button className="choice" disabled={busy} onClick={acceptInvite}>
+                去见他
+              </button>
+              <button className="choice" disabled={busy} onClick={postponeInvite}>
+                改约 · 过两天
+              </button>
+              <button className="choice" disabled={busy} onClick={declineInvite}>
+                婉拒
+              </button>
+            </div>
+          )}
           {choices.length > 0 && (
             <div className="choices">
               {choices.map((c, i) => (

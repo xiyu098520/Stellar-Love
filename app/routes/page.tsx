@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { emptyState, stageOf } from '@/lib/affinity';
 import { clockText, initClock } from '@/lib/clock';
+import { makeRouteSave } from '@/lib/routes';
 import { listSaves, loadWorld, newId, putSave } from '@/lib/store';
 import type { Character, Save, World } from '@/lib/types';
 
@@ -46,31 +47,7 @@ export default function RoutesPage() {
     const value = affinityOf(c.id);
     if (value < GATE) return;
 
-    const now = Date.now();
-    const seed = main.state || emptyState();
-    const clock = seed.clock || initClock(world);
-    const next: Save = {
-      id: newId('route'),
-      worldId: world.id,
-      worldTitle: world.title,
-      kind: 'route',
-      routeOf: c.id,
-      parentId: main.id,
-      title: `${c.name}线`,
-      turns: [],
-      relations: [],
-      state: {
-        ...seed,
-        clock,
-        time: clockText(clock),
-        affinity: { [c.id]: value },
-        log: [],
-        hits: {},
-        charAttrs: seed.charAttrs?.[c.id] ? { [c.id]: seed.charAttrs[c.id] } : {},
-      },
-      createdAt: now,
-      updatedAt: now,
-    };
+    const next = makeRouteSave(world, main, c);
     await putSave(next);
     router.push(`/play?save=${next.id}`);
   }
