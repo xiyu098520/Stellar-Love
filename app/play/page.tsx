@@ -305,7 +305,7 @@ function PlayInner() {
   async function synth(text: string, who?: string): Promise<string> {
     const p = voiceProfile!;
     const c = charOf(who);
-    const voice = (c && p.voices?.[c.id]) || p.voiceId || 'alloy';
+    const voice = c?.voiceId || (c && p.voices?.[c.id]) || p.voiceId || 'alloy';
     const res = await fetch(`${p.baseUrl.replace(/\/+$/, '')}/audio/speech`, {
       method: 'POST',
       headers: {

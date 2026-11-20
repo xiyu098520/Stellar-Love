@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { activeProfile, blankProfile, loadSettings, loadWorld, saveSettings } from '@/lib/store';
+import { activeProfile, blankProfile, loadSettings, saveSettings } from '@/lib/store';
 import { chat } from '@/lib/llm';
-import type { ApiKind, ApiProfile, Character, Settings } from '@/lib/types';
+import type { ApiKind, ApiProfile, Settings } from '@/lib/types';
 
 const TABS: { k: ApiKind; t: string; note: string }[] = [
   { k: 'story', t: '剧情', note: '写正文的那一套。主线、个人线、番外都走它。' },
@@ -26,14 +26,11 @@ export default function ApiSettingsPage() {
   const [models, setModels] = useState<string[]>([]);
   const [fetching, setFetching] = useState(false);
   const [testing, setTesting] = useState(false);
-  const [leads, setLeads] = useState<Character[]>([]);
   const [voices, setVoices] = useState<{ id: string; name: string }[]>([]);
   const [fetchingVoices, setFetchingVoices] = useState(false);
 
   useEffect(() => {
     setS(loadSettings());
-    const w = loadWorld();
-    setLeads(w ? w.characters.filter(c => c.role !== 'npc' && c.name.trim()) : []);
   }, []);
 
   const list = s.profiles.filter(p => p.kind === tab);
@@ -93,7 +90,9 @@ export default function ApiSettingsPage() {
     setMsg('读取模型…');
     try {
       const res = await fetch(`${base}/models`, {
-        headers: cur.apiKey ? { Authorization: `Bearer ${cur.apiKey}` } : {},
+        headers: cur.apiKey
+          ? { Authorization: `Bearer ${cur.apiKey}`, 'xi-api-key': cur.apiKey }
+          : {},
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
@@ -164,7 +163,9 @@ export default function ApiSettingsPage() {
         const base = cur.baseUrl.trim().replace(/\/+$/, '');
         if (!base) throw new Error('先填 API 地址');
         const res = await fetch(`${base}/voices`, {
-          headers: cur.apiKey ? { 'xi-api-key': cur.apiKey } : {},
+          headers: cur.apiKey
+            ? { 'xi-api-key': cur.apiKey, Authorization: `Bearer ${cur.apiKey}` }
+            : {},
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
@@ -193,7 +194,7 @@ export default function ApiSettingsPage() {
         <div className="topbar">
           <button className="back" onClick={() => router.push('/settings')}>返回</button>
           <div className="title">接口</div>
-          <div className="right">{msg}</div>
+          <div className="right" />
         </div>
 
         <div className="body">
@@ -210,6 +211,8 @@ export default function ApiSettingsPage() {
           </div>
 
           <div className="muted" style={{ fontSize: 12, lineHeight: 1.9 }}>{TABS.find(t => t.k === tab)?.note}</div>
+
+          {msg && <div className="api-msg">{msg}</div>}
 
           <div className="section-title">预设</div>
           <div className="chips">
@@ -330,7 +333,7 @@ export default function ApiSettingsPage() {
                     {fetchingVoices ? '读取中…' : '拉取音色列表'}
                   </button>
                   <span className="muted" style={{ fontSize: 11 }}>
-                    读回来之后，下面每个人都可以直接选
+                    读回来之后可以直接选
                   </span>
                 </div>
                 {voices.length > 0 && (
@@ -346,42 +349,8 @@ export default function ApiSettingsPage() {
                     ))}
                   </select>
                 )}
-                <div className="tip">下面没单独配的角色，都会用这个音色。</div>
+                <div className="tip">旁白、无名路人用这个音色。每个男主的音色在「人物」里单独填。</div>
               </div>
-
-              {leads.length === 0 && (
-                <div className="muted" style={{ fontSize: 12, marginTop: 12 }}>
-                  现在剧本里还没有主角。去「人物」里加人之后，这里就会列出每个人。
-                </div>
-              )}
-
-              {leads.map(c => (
-                <div className="field" key={c.id}>
-                  <label>{c.name}的音色</label>
-                  <input
-                    value={cur.voices?.[c.id] || ''}
-                    onChange={e =>
-                      patch({ voices: { ...(cur.voices || {}), [c.id]: e.target.value } })
-                    }
-                    placeholder={cur.voiceId || 'voice_id'}
-                  />
-                  {voices.length > 0 && (
-                    <select
-                      value={cur.voices?.[c.id] || ''}
-                      onChange={e =>
-                        patch({ voices: { ...(cur.voices || {}), [c.id]: e.target.value } })
-                      }
-                    >
-                      <option value="">跟随默认音色</option>
-                      {voices.map(v => (
-                        <option key={v.id} value={v.id}>
-                          {v.name}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-              ))}
 
               <div className="field">
                 <label>语速</label>

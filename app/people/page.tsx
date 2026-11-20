@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { stageOf } from '@/lib/affinity';
-import { delVoiceClip, listSaves, listVoiceClips, loadWorld } from '@/lib/store';
+import { delVoiceClip, listSaves, listVoiceClips, loadWorld, saveWorld } from '@/lib/store';
 import type { Character, Save, VoiceClip, World } from '@/lib/types';
 
 const IconPlay = () => (
@@ -27,6 +27,7 @@ export default function PeoplePage() {
   const [voices, setVoices] = useState<VoiceClip[]>([]);
   const [playing, setPlaying] = useState('');
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const voiceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -73,6 +74,18 @@ export default function PeoplePage() {
         setPlaying('');
       }
     } catch {}
+  }
+
+  function setVoiceId(value: string) {
+    if (!picked || !world) return;
+    const characters = world.characters.map(c =>
+      c.id === picked.id ? { ...c, voiceId: value } : c
+    );
+    const next = { ...world, characters, updatedAt: Date.now() };
+    setWorld(next);
+    setPicked({ ...picked, voiceId: value });
+    if (voiceTimer.current) clearTimeout(voiceTimer.current);
+    voiceTimer.current = setTimeout(() => saveWorld(next), 350);
   }
 
   function close() {
@@ -172,6 +185,16 @@ export default function PeoplePage() {
                   </div>
                 </div>
               )}
+
+              <div className="field">
+                <label>音色 ID</label>
+                <input
+                  value={picked.voiceId || ''}
+                  onChange={e => setVoiceId(e.target.value)}
+                  placeholder="留空就用接口页的默认音色"
+                />
+                <div className="tip">朗读他台词时用这个音色。音色列表在「设定 → 接口 → 语音」里拉取。</div>
+              </div>
 
               <div className="voice-lib">
                 <div className="voice-lib-head">

@@ -1336,3 +1336,14 @@ body { background: transparent; }
   min-width: 0;
   box-sizing: border-box;
 }
+
+.api-msg {
+  margin: 10px 0 2px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, .12);
+  background: rgba(255, 255, 255, .06);
+  font-size: 12px;
+  line-height: 1.7;
+  word-break: break-all;
+}
