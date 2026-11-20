@@ -89,20 +89,36 @@ export default function ApiSettingsPage() {
     setFetching(true);
     setMsg('读取模型…');
     try {
-      const res = await fetch(`${base}/models`, {
-        headers: cur.apiKey
-          ? { Authorization: `Bearer ${cur.apiKey}`, 'xi-api-key': cur.apiKey }
-          : {},
+      let res = await fetch('/api/models', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ baseUrl: base, apiKey: cur.apiKey }),
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (res.status === 404) {
+        res = await fetch(`${base}/models`, {
+          headers: cur.apiKey
+            ? { Authorization: `Bearer ${cur.apiKey}`, 'xi-api-key': cur.apiKey }
+            : {},
+        });
+      }
+      if (!res.ok) {
+        let detail = `HTTP ${res.status}`;
+        try {
+          const j = await res.json();
+          if (j?.error) detail = String(j.error);
+        } catch {}
+        throw new Error(detail);
+      }
       const data = await res.json();
-      const rows: unknown[] = Array.isArray(data?.data)
-        ? data.data
-        : Array.isArray(data?.models)
-          ? data.models
-          : [];
+      const rows: unknown[] = Array.isArray(data?.models)
+        ? data.models
+        : Array.isArray(data?.data)
+          ? data.data
+          : Array.isArray(data)
+            ? data
+            : [];
       const ids = rows
-        .map((m: any) => (typeof m === 'string' ? m : m?.id || m?.name))
+        .map((m: any) => (typeof m === 'string' ? m : m?.id || m?.model_id || m?.name))
         .filter((x): x is string => typeof x === 'string' && x.length > 0)
         .sort();
       if (!ids.length) throw new Error('没读到模型列表');
@@ -125,13 +141,27 @@ export default function ApiSettingsPage() {
     setFetchingVoices(true);
     setMsg('读取音色…');
     try {
-      const headers: Record<string, string> = {};
-      if (cur.apiKey) {
-        headers['xi-api-key'] = cur.apiKey;
-        headers.Authorization = `Bearer ${cur.apiKey}`;
+      let res = await fetch('/api/voices', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ baseUrl: base, apiKey: cur.apiKey }),
+      });
+      if (res.status === 404) {
+        const headers: Record<string, string> = {};
+        if (cur.apiKey) {
+          headers['xi-api-key'] = cur.apiKey;
+          headers.Authorization = `Bearer ${cur.apiKey}`;
+        }
+        res = await fetch(`${base}/voices`, { headers });
       }
-      const res = await fetch(`${base}/voices`, { headers });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        let detail = `HTTP ${res.status}`;
+        try {
+          const j = await res.json();
+          if (j?.error) detail = String(j.error);
+        } catch {}
+        throw new Error(detail);
+      }
       const data = await res.json();
       const rows: any[] = Array.isArray(data?.voices)
         ? data.voices
@@ -162,12 +192,26 @@ export default function ApiSettingsPage() {
       if (tab === 'tts') {
         const base = cur.baseUrl.trim().replace(/\/+$/, '');
         if (!base) throw new Error('先填 API 地址');
-        const res = await fetch(`${base}/voices`, {
-          headers: cur.apiKey
-            ? { 'xi-api-key': cur.apiKey, Authorization: `Bearer ${cur.apiKey}` }
-            : {},
+        let res = await fetch('/api/voices', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ baseUrl: base, apiKey: cur.apiKey }),
         });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (res.status === 404) {
+          res = await fetch(`${base}/voices`, {
+            headers: cur.apiKey
+              ? { 'xi-api-key': cur.apiKey, Authorization: `Bearer ${cur.apiKey}` }
+              : {},
+          });
+        }
+        if (!res.ok) {
+          let detail = `HTTP ${res.status}`;
+          try {
+            const j = await res.json();
+            if (j?.error) detail = String(j.error);
+          } catch {}
+          throw new Error(detail);
+        }
         const data = await res.json();
         const n = Array.isArray(data?.voices) ? data.voices.length : 0;
         setMsg(`通了，${n} 个音色`);
@@ -355,10 +399,18 @@ export default function ApiSettingsPage() {
               <div className="field">
                 <label>语速</label>
                 <input
-                  value={String(cur.speed ?? 1)}
-                  onChange={e => patch({ speed: Number(e.target.value) || 1 })}
+                  key={cur.id}
+                  defaultValue={String(cur.speed ?? 1)}
+                  inputMode="decimal"
+                  onChange={e => {
+                    const v = e.target.value;
+                    if (v === '') return;
+                    const n = Number(v);
+                    if (Number.isFinite(n)) patch({ speed: Math.max(0.7, Math.min(1.2, n)) });
+                  }}
                   placeholder="1"
                 />
+                <div className="tip">ElevenLabs v3 模型不支持语速，会自动忽略。</div>
               </div>
               <div className="field">
                 <label>语言</label>

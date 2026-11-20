@@ -203,14 +203,16 @@ function splitNarration(text: string): string[] {
   return out.length ? out : [text];
 }
 
-type Beat = { type: 'dialogue' | 'narration'; who?: string; text: string };
+type Beat = { type: 'dialogue' | 'narration'; who?: string; text: string; tone?: string };
 
 /** 把一回合的分段铺成逐句播放的节拍：台词一句一句，旁白一段一段 */
 function beatsOf(segments: Segment[] | undefined): Beat[] {
   const out: Beat[] = [];
   for (const seg of segments || []) {
     if (seg.type === 'dialogue')
-      splitNarration(seg.text).forEach(text => out.push({ type: 'dialogue', who: seg.who, text }));
+      splitNarration(seg.text).forEach(text =>
+        out.push({ type: 'dialogue', who: seg.who, text, tone: seg.tone }),
+      );
     else if (seg.text.trim()) out.push({ type: 'narration', text: seg.text.trim() });
   }
   return out;
@@ -302,25 +304,52 @@ function PlayInner() {
     [world],
   );
 
-  async function synth(text: string, who?: string): Promise<string> {
+  async function synth(text: string, who?: string, tone?: string): Promise<string> {
     const p = voiceProfile!;
     const c = charOf(who);
     const voice = c?.voiceId || (c && p.voices?.[c.id]) || p.voiceId || 'alloy';
-    const res = await fetch(`${p.baseUrl.replace(/\/+$/, '')}/audio/speech`, {
+    const v3 = /v[3-9]/i.test(p.model || '');
+    const say = v3 && tone ? `[${tone}] ${text}` : text;
+
+    let res = await fetch('/api/tts', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${p.apiKey}`,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: p.model || 'tts-1',
-        input: text,
-        voice,
-        speed: p.speed || 1,
-        response_format: 'mp3',
+        baseUrl: p.baseUrl,
+        apiKey: p.apiKey,
+        voiceId: voice,
+        text: say,
+        model: p.model,
+        speed: p.speed,
       }),
     });
-    if (!res.ok) throw new Error(`语音接口 ${res.status}`);
+
+    // 本地 next dev 没有 Pages Functions，退回直连（OpenAI 兼容的接口）
+    if (res.status === 404 && !/elevenlabs/i.test(p.baseUrl)) {
+      res = await fetch(`${p.baseUrl.replace(/\/+$/, '')}/audio/speech`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${p.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: p.model || 'tts-1',
+          input: say,
+          voice,
+          speed: p.speed || 1,
+          response_format: 'mp3',
+        }),
+      });
+    }
+
+    if (!res.ok) {
+      let detail = `语音接口 ${res.status}`;
+      try {
+        const j = await res.json();
+        if (j?.error) detail = String(j.error);
+      } catch {}
+      throw new Error(detail);
+    }
     const blob = await res.blob();
     return new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
@@ -330,7 +359,7 @@ function PlayInner() {
     });
   }
 
-  async function play(key: string, text: string, who?: string) {
+  async function play(key: string, text: string, who?: string, tone?: string) {
     const c = charOf(who);
     const clip = c ? clips[clipKey(c.id, text)] : undefined;
     try {
@@ -340,7 +369,7 @@ function PlayInner() {
           setErr('还没有配语音接口，先去设定里填。');
           return;
         }
-        url = await synth(text, who);
+        url = await synth(text, who, tone);
         cacheRef.current[key] = url;
       }
       audioRef.current?.pause();
@@ -397,7 +426,7 @@ function PlayInner() {
     }
   }
 
-  const renderDlg = (who: string | undefined, text: string, key: string) => {
+  const renderDlg = (who: string | undefined, text: string, key: string, tone?: string) => {
     const c = charOf(who);
     const clip = c ? clips[clipKey(c.id, text)] : undefined;
     return (
@@ -411,7 +440,7 @@ function PlayInner() {
                 title="播放这句"
                 onClick={e => {
                   e.stopPropagation();
-                  play(key, text, who);
+                  play(key, text, who, tone);
                 }}
               >
                 {speaking === key ? <IconStop /> : <IconPlay />}
@@ -804,14 +833,14 @@ function PlayInner() {
                       k < seen ? (
                         <div className={`beat ${b.type}`} key={k}>
                           {b.type === 'dialogue'
-                            ? renderDlg(b.who, b.text, `t${i}b${k}`)
+                            ? renderDlg(b.who, b.text, `t${i}b${k}`, b.tone)
                             : renderNarr(b.text, `t${i}b${k}`)}
                         </div>
                       ) : null,
                     )
                   : (t.segments || []).map((seg, k) =>
                       seg.type === 'dialogue'
-                        ? renderDlg(seg.who, seg.text, `t${i}b${k}`)
+                        ? renderDlg(seg.who, seg.text, `t${i}b${k}`, seg.tone)
                         : renderNarr(seg.text, `t${i}b${k}`),
                     )}
               </div>
