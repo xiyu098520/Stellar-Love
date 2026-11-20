@@ -126,6 +126,32 @@ function applySettle(
   return next;
 }
 
+/** 一条叙述拆成适合逐句显示的短句 */
+function splitNarration(text: string): string[] {
+  const parts = text
+    .split(/(?<=[。！？…])/)
+    .map(s => s.trim())
+    .filter(Boolean);
+  const out: string[] = [];
+  for (const p of parts) {
+    if (out.length && p.length < 12) out[out.length - 1] += p;
+    else out.push(p);
+  }
+  return out.length ? out : [text];
+}
+
+type Beat = { type: 'dialogue' | 'narration'; who?: string; text: string };
+
+/** 把一回合的分段铺成逐句播放的节拍 */
+function beatsOf(segments: Segment[] | undefined): Beat[] {
+  const out: Beat[] = [];
+  for (const seg of segments || []) {
+    if (seg.type === 'dialogue') out.push({ type: 'dialogue', who: seg.who, text: seg.text });
+    else splitNarration(seg.text).forEach(text => out.push({ type: 'narration', text }));
+  }
+  return out;
+}
+
 function PlayInner() {
   const router = useRouter();
   const params = useSearchParams();
@@ -139,6 +165,8 @@ function PlayInner() {
   const [err, setErr] = useState('');
   const [draft, setDraft] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
+  /** 最后一段正文里已经点开了多少节拍；读到末尾才放选项和输入框 */
+  const [seen, setSeen] = useState(9999);
 
   useEffect(() => {
     (async () => {
@@ -153,10 +181,56 @@ function PlayInner() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }, [save?.turns.length, busy]);
+  }, [save?.turns.length, busy, seen]);
 
   const lastAssistant = [...(save?.turns || [])].reverse().find(t => t.role === 'assistant');
   const choices = lastAssistant?.choices || [];
+
+  const lastIdx = (() => {
+    const turns = save?.turns || [];
+    for (let i = turns.length - 1; i >= 0; i--) if (turns[i].role === 'assistant') return i;
+    return -1;
+  })();
+  const lastBeats = lastIdx >= 0 ? beatsOf(save!.turns[lastIdx].segments) : [];
+  const reading = lastIdx >= 0 && seen < lastBeats.length;
+
+  const voiceProfile = settings ? activeProfile(settings, 'tts') : null;
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [speaking, setSpeaking] = useState('');
+
+  const speak = useCallback(
+    async (key: string, text: string) => {
+      if (!voiceProfile?.baseUrl) return;
+      try {
+        setSpeaking(key);
+        const res = await fetch(`${voiceProfile.baseUrl.replace(/\/+$/, '')}/audio/speech`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${voiceProfile.apiKey}`,
+          },
+          body: JSON.stringify({
+            model: voiceProfile.model || 'tts-1',
+            input: text,
+            voice: voiceProfile.voiceId || 'alloy',
+            speed: voiceProfile.speed || 1,
+            response_format: 'mp3',
+          }),
+        });
+        if (!res.ok) throw new Error(`语音接口 ${res.status}`);
+        const url = URL.createObjectURL(await res.blob());
+        audioRef.current?.pause();
+        const audio = new Audio(url);
+        audioRef.current = audio;
+        audio.onended = () => setSpeaking('');
+        await audio.play();
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : '语音播放失败');
+        setSpeaking('');
+      }
+    },
+    [voiceProfile],
+  );
 
   const run = useCallback(
     async (nextSave: Save) => {
@@ -170,7 +244,7 @@ function PlayInner() {
           state: seedState(world, touched.state || emptyState()),
         };
         const messages = buildMessages(world, seeded);
-        const raw = await chat(activeProfile(settings, 'story'), messages, { json: true, maxTokens: 2400 });
+        const raw = await chat(activeProfile(settings, 'story'), messages, { json: true, maxTokens: 4000 });
         let out: ModelOut;
         try {
           out = parseJSON<ModelOut>(raw);
@@ -213,6 +287,7 @@ function PlayInner() {
           updatedAt: Date.now(),
         };
         await putSave(done);
+        setSeen(1);
         setSave(done);
       } catch (e) {
         setErr(e instanceof Error ? e.message : '生成失败');
@@ -273,7 +348,12 @@ function PlayInner() {
           <div className="right">{save.turns.filter(t => t.role === 'assistant').length} 回合</div>
         </div>
 
-        <div className="reader">
+        <div
+          className="reader"
+          onClick={() => {
+            if (reading) setSeen(s => s + 1);
+          }}
+        >
           {!started && (
             <div className="center" style={{ padding: '18vh 0' }}>
               <div className="muted" style={{ marginBottom: 20, letterSpacing: '.2em' }}>
@@ -299,27 +379,56 @@ function PlayInner() {
                     {t.place ? ` · ${t.place}` : ''}
                   </div>
                 )}
-                {(t.segments || []).map((seg, k) =>
-                  seg.type === 'dialogue' ? (
-                    <div className="dlg" key={k}>
-                      <div className="who">{seg.who}</div>
-                      <div className="line">{seg.text}</div>
-                    </div>
-                  ) : (
-                    <p className="narr" key={k}>{seg.text}</p>
-                  ),
-                )}
+                {i === lastIdx
+                  ? beatsOf(t.segments).map((b, k) =>
+                      k < seen ? (
+                        <div className={`beat ${b.type}`} key={k}>
+                          {b.type === 'dialogue' ? (
+                            <div className="dlg">
+                              <div className="who">
+                                {b.who}
+                                {voiceProfile?.baseUrl && (
+                                  <button
+                                    className="voice-btn"
+                                    onClick={e => {
+                                      e.stopPropagation();
+                                      speak(`t${i}-${k}`, b.text);
+                                    }}
+                                  >
+                                    {speaking === `t${i}-${k}` ? '■' : '▶'}
+                                  </button>
+                                )}
+                              </div>
+                              <div className="line">{b.text}</div>
+                            </div>
+                          ) : (
+                            <p className="narr">{b.text}</p>
+                          )}
+                        </div>
+                      ) : null,
+                    )
+                  : (t.segments || []).map((seg, k) =>
+                      seg.type === 'dialogue' ? (
+                        <div className="dlg" key={k}>
+                          <div className="who">{seg.who}</div>
+                          <div className="line">{seg.text}</div>
+                        </div>
+                      ) : (
+                        <p className="narr" key={k}>{seg.text}</p>
+                      ),
+                    )}
               </div>
             ),
           )}
 
           {busy && <div className="muted">……</div>}
+          {reading && <div className="tap-hint">轻点继续</div>}
           {err && started && <div className="err">{err}</div>}
           <div ref={bottomRef} />
         </div>
       </div>
 
-      {started && (
+      {started && !reading && (
         <div className="dock">
           {choices.length > 0 && (
             <div className="choices">

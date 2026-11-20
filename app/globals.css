@@ -236,6 +236,24 @@ input, textarea, select { font-family: inherit; }
 .dlg .line.tired, .dlg .line.softly { color: var(--ink); }
 .you { color: var(--ink-2); font-size: 13px; line-height: 1.9; border-right: 1px solid var(--line); padding-right: 10px; text-align: right; }
 
+/* 逐句显示：每句淡入，句子之间留一口气 */
+.beat { animation: beat-in .34s ease both; }
+.beat.dialogue { margin: 0 0 14px; }
+@keyframes beat-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+.voice-btn {
+  margin-left: 8px; padding: 0 4px; font-size: 9px; line-height: 1;
+  color: var(--ink-3); background: none; border: none; cursor: pointer;
+}
+.voice-btn:active { color: var(--gold); }
+.tap-hint {
+  text-align: center; font-size: 10px; letter-spacing: .3em; color: var(--ink-3);
+  padding: 20px 0 10px; animation: hint-fade 1.8s ease-in-out infinite;
+}
+@keyframes hint-fade { 0%, 100% { opacity: .35; } 50% { opacity: .85; } }
+
 .dock {
   position: fixed;
   left: 0; right: 0; bottom: 0;

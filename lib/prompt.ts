@@ -17,7 +17,7 @@ const FORMAT = `只输出一个 JSON 对象，不要任何解释、不要代码�
               "attrs": [{ "who": "", "name": "金钱", "delta": -38, "reason": "买了一杯手冲" }] }
 }
 tone 可选，只能是 sighs、whispers、softly、laughs、sad、happy、angry、excited、nervous、calm、tired、sarcastic 之一。
-segments 至少 3 段、正文合计 260 到 520 字。choices 给 2 到 4 条，每条不超过 18 字，写成她能做的事，不写心理活动。`;
+segments 至少 6 段、正文合计 800 到 1600 字。她一次读不完，所以每一段都要短：叙述一句到两句，台词一条一句，不要出现整段大块文字。choices 给 2 到 4 条，每条不超过 18 字，写成她能做的事，不写心理活动。`;
 
 /** 结算规则：只允许报这几个档，理由必须具体 */
 const SETTLE_RULE = `【结算】
