@@ -38,7 +38,7 @@ import type {
   World,
 } from '@/lib/types';
 import type { NumberedTurn } from '@/lib/chapter';
-import { applyMoney, earnCoins, loadWallet, saveWallet } from '@/lib/wallet';
+import { applyMoney, earnCoins, loadWallet, saveWallet, addItem } from '@/lib/wallet';
 
 type AttrSettle = { who?: string; name?: string; delta?: number; reason?: string };
 type Settle = {
@@ -49,6 +49,8 @@ type Settle = {
   money?: number;
   moneyReason?: string;
   phone?: { who?: string; text?: string }[];
+  /** 这一段实际买到、带在身上的东西 */
+  bought?: string[];
   attrs?: AttrSettle[];
 };
 
@@ -643,6 +645,13 @@ function PlayInner() {
             });
           }
           wallet = earnCoins(wallet, world.coinPerTurn ?? 100);
+          // 剧情里买下的东西，按名字找剧本物品；找不到就按自定义物品记进背包
+          for (const name of out?.settle?.bought || []) {
+            const clean = String(name || '').trim();
+            if (!clean) continue;
+            const hit = (world.items || []).find(i => i.name === clean);
+            wallet = addItem(wallet, hit ? hit.id : `x:${clean}`, 1);
+          }
           saveWallet(world.id, wallet);
           setMoney(wallet.money);
         }
