@@ -2,29 +2,10 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  delVoiceClip,
-  listVoiceClips,
-  loadWallpaper,
-  loadWorld,
-  newId,
-  saveWorld,
-} from '@/lib/store';
-import type { Character, VoiceClip, World } from '@/lib/types';
+import { loadWallpaper, loadWorld, newId, saveWorld } from '@/lib/store';
+import type { Character, World } from '@/lib/types';
 
 const splitKw = (v: string) => v.split(/[,，、\s]+/).map(s => s.trim()).filter(Boolean);
-
-const IconPlay = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-    <path d="M8.5 5.5l9.5 6.5-9.5 6.5z" strokeLinejoin="round" />
-  </svg>
-);
-
-const IconStop = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-    <rect x="7" y="7" width="10" height="10" rx="1" />
-  </svg>
-);
 
 export default function CharactersPage() {
   const router = useRouter();
@@ -32,41 +13,12 @@ export default function CharactersPage() {
   const [wall, setWall] = useState('');
   const [role, setRole] = useState<'self' | 'lead' | 'npc'>('self');
   const [openId, setOpenId] = useState<string | null>(null);
-  const [voices, setVoices] = useState<VoiceClip[]>([]);
-  const [playing, setPlaying] = useState('');
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setWorld(loadWorld());
     setWall(loadWallpaper().url);
-    listVoiceClips().then(setVoices).catch(() => {});
   }, []);
-
-  function playVoice(v: VoiceClip) {
-    if (playing === v.id) {
-      audioRef.current?.pause();
-      setPlaying('');
-      return;
-    }
-    audioRef.current?.pause();
-    const audio = new Audio(v.audio);
-    audioRef.current = audio;
-    setPlaying(v.id);
-    audio.onended = () => setPlaying('');
-    audio.play().catch(() => setPlaying(''));
-  }
-
-  async function dropVoice(id: string) {
-    try {
-      await delVoiceClip(id);
-      setVoices(prev => prev.filter(v => v.id !== id));
-      if (playing === id) {
-        audioRef.current?.pause();
-        setPlaying('');
-      }
-    } catch {}
-  }
 
   function commit(next: World) {
     next.updatedAt = Date.now();
@@ -255,44 +207,6 @@ export default function CharactersPage() {
                           placeholder="性格、经历、在意的事"
                         />
                       </div>
-
-                      {(() => {
-                        const mine = voices.filter(
-                          v => v.characterId === c.id && (!world?.id || v.worldId === world.id),
-                        );
-                        return (
-                          <div className="voice-lib">
-                            <div className="voice-lib-head">
-                              <span>语音库</span>
-                              <span>{mine.length ? `${mine.length} 条` : ''}</span>
-                            </div>
-                            {!mine.length && (
-                              <div className="tip">
-                                在剧情里点台词右上角的收藏键，他的声音会存到这里，可以反复听。
-                              </div>
-                            )}
-                            {mine.map(v => (
-                              <div className="voice-row" key={v.id}>
-                                <button
-                                  className={`voice-play${playing === v.id ? ' on' : ''}`}
-                                  onClick={() => playVoice(v)}
-                                  title={playing === v.id ? '停止' : '播放'}
-                                >
-                                  {playing === v.id ? <IconStop /> : <IconPlay />}
-                                </button>
-                                <div className="voice-text">{v.text}</div>
-                                <button
-                                  className="mini danger"
-                                  onClick={() => dropVoice(v.id)}
-                                  title="删除这条收藏"
-                                >
-                                  ×
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        );
-                      })()}
 
                       {role === 'npc' && (
                         <>

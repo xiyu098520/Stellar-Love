@@ -1327,3 +1327,12 @@ body { background: transparent; }
   font-size: 14px;
   color: inherit;
 }
+
+.field input[type="date"],
+.field input[type="time"] {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
