@@ -254,6 +254,8 @@ export type ApiProfile = {
   temperature?: number;
   /** 语音 */
   voiceId?: string;
+  /** 每个角色各自的音色，键是角色 id；没配的用 voiceId 兜底 */
+  voices?: Record<string, string>;
   speed?: number;
   lang?: 'zh' | 'ja';
   tone?: string;

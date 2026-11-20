@@ -302,8 +302,10 @@ function PlayInner() {
     [world],
   );
 
-  async function synth(text: string): Promise<string> {
+  async function synth(text: string, who?: string): Promise<string> {
     const p = voiceProfile!;
+    const c = charOf(who);
+    const voice = (c && p.voices?.[c.id]) || p.voiceId || 'alloy';
     const res = await fetch(`${p.baseUrl.replace(/\/+$/, '')}/audio/speech`, {
       method: 'POST',
       headers: {
@@ -313,7 +315,7 @@ function PlayInner() {
       body: JSON.stringify({
         model: p.model || 'tts-1',
         input: text,
-        voice: p.voiceId || 'alloy',
+        voice,
         speed: p.speed || 1,
         response_format: 'mp3',
       }),
@@ -338,7 +340,7 @@ function PlayInner() {
           setErr('还没有配语音接口，先去设定里填。');
           return;
         }
-        url = await synth(text);
+        url = await synth(text, who);
         cacheRef.current[key] = url;
       }
       audioRef.current?.pause();

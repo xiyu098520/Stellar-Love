@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { activeProfile, blankProfile, loadSettings, saveSettings } from '@/lib/store';
+import { activeProfile, blankProfile, loadSettings, loadWorld, saveSettings } from '@/lib/store';
 import { chat } from '@/lib/llm';
-import type { ApiKind, ApiProfile, Settings } from '@/lib/types';
+import type { ApiKind, ApiProfile, Character, Settings } from '@/lib/types';
 
 const TABS: { k: ApiKind; t: string; note: string }[] = [
   { k: 'story', t: '剧情', note: '写正文的那一套。主线、个人线、番外都走它。' },
@@ -26,9 +26,12 @@ export default function ApiSettingsPage() {
   const [models, setModels] = useState<string[]>([]);
   const [fetching, setFetching] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [leads, setLeads] = useState<Character[]>([]);
 
   useEffect(() => {
     setS(loadSettings());
+    const w = loadWorld();
+    setLeads(w ? w.characters.filter(c => c.role !== 'npc' && c.name.trim()) : []);
   }, []);
 
   const list = s.profiles.filter(p => p.kind === tab);
@@ -270,14 +273,34 @@ export default function ApiSettingsPage() {
           {tab === 'tts' && (
             <>
               <div className="field">
-                <label>音色 ID</label>
+                <label>默认音色（旁白、无名路人用）</label>
                 <input
                   value={cur.voiceId || ''}
                   onChange={e => patch({ voiceId: e.target.value })}
                   placeholder="voice_id"
                 />
-                <div className="tip">四名男主可以各存一套预设，名字写清楚是谁。</div>
+                <div className="tip">下面没单独配的角色，都会用这个音色。</div>
               </div>
+
+              {leads.length === 0 && (
+                <div className="muted" style={{ fontSize: 12, marginTop: 12 }}>
+                  现在剧本里还没有主角。去「人物」里加人之后，这里就会列出每个人。
+                </div>
+              )}
+
+              {leads.map(c => (
+                <div className="field" key={c.id}>
+                  <label>{c.name}的音色</label>
+                  <input
+                    value={cur.voices?.[c.id] || ''}
+                    onChange={e =>
+                      patch({ voices: { ...(cur.voices || {}), [c.id]: e.target.value } })
+                    }
+                    placeholder={cur.voiceId || 'voice_id'}
+                  />
+                </div>
+              ))}
+
               <div className="field">
                 <label>语速</label>
                 <input
