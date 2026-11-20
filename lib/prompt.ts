@@ -1,7 +1,7 @@
 'use client';
 
 import type { ChatMessage } from './llm';
-import type { Character, Save, Turn, World } from './types';
+import type { Character, Save, Turn, World, WorldBlock } from './types';
 
 const FORMAT = `只输出一个 JSON 对象，不要任何解释、不要代码块围栏：
 {
@@ -16,8 +16,24 @@ const FORMAT = `只输出一个 JSON 对象，不要任何解释、不要代码�
 tone 可选，只能是 sighs、whispers、softly、laughs、sad、happy、angry、excited、nervous、calm、tired、sarcastic 之一。
 segments 至少 3 段、正文合计 260 到 520 字。choices 给 2 到 4 条，每条不超过 18 字，写成她能做的事，不写心理活动。`;
 
+/** 组装给模型的设定块：固定栏目在前，补充在后；新档案为空时退回旧档案原块 */
+export function worldBlocks(world: World): WorldBlock[] {
+  const out: WorldBlock[] = [];
+  const add = (title: string, content?: string) => {
+    if (content && content.trim()) out.push({ title, content: content.trim() });
+  };
+  add('时代与科技', world.era);
+  add('核心规则', world.rules);
+  add('场所与势力', world.places);
+  add('主线大纲', world.outline);
+  add('禁忌', world.banned);
+  add('文风', world.style);
+  for (const b of world.extras || []) add(b.title, b.content);
+  return out.length ? out : (world.blocks || []);
+}
+
 function blocksText(world: World): string {
-  return world.blocks
+  return worldBlocks(world)
     .map(b => `## ${b.title}\n${b.content}`)
     .join('\n\n');
 }

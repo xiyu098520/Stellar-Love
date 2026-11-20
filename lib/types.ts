@@ -32,7 +32,22 @@ export type World = {
   source?: string;
   /** 一句话简介 */
   tagline?: string;
-  blocks: WorldBlock[];
+  /** 世界观 · 时代与科技 */
+  era?: string;
+  /** 世界观 · 核心规则 */
+  rules?: string;
+  /** 世界观 · 重要场所与势力 */
+  places?: string;
+  /** 主线大纲，一章一行 */
+  outline?: string;
+  /** 规则与禁忌 */
+  banned?: string;
+  /** 文风样本 */
+  style?: string;
+  /** 补充栏目 */
+  extras?: WorldBlock[];
+  /** 旧档案原样保留，新档案不用 */
+  blocks?: WorldBlock[];
   characters: Character[];
   protagonist?: string;
   notes?: string;

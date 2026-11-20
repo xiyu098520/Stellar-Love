@@ -74,7 +74,7 @@ export default function SettingsPage() {
           <Link href="/settings/world" className="menu-row">
             <span className="k">剧本</span>
             <span className="v">
-              {world ? `${world.title} · ${world.blocks.length} 块 · ${world.characters.length} 人` : '未导入'}
+              {world ? `${world.title} · ${world.characters.length} 人` : '未导入'}
             </span>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4">
               <path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
