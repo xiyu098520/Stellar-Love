@@ -260,8 +260,15 @@ export default function ApiSettingsPage() {
             <div className="field">
               <label>温度（0 - 2）</label>
               <input
-                value={String(cur.temperature ?? (tab === 'story' ? 0.9 : 0.3))}
-                onChange={e => patch({ temperature: Number(e.target.value) || 0 })}
+                key={cur.id}
+                defaultValue={String(cur.temperature ?? (tab === 'story' ? 0.9 : 0.3))}
+                inputMode="decimal"
+                onChange={e => {
+                  const n = Number(e.target.value);
+                  if (e.target.value !== '' && Number.isFinite(n)) {
+                    patch({ temperature: Math.max(0, Math.min(2, n)) });
+                  }
+                }}
                 placeholder="0.9"
               />
               <div className="tip">
