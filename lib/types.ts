@@ -28,6 +28,10 @@ export type World = {
   id: string;
   title: string;
   updatedAt: number;
+  /** 原著 / 出处 */
+  source?: string;
+  /** 一句话简介 */
+  tagline?: string;
   blocks: WorldBlock[];
   characters: Character[];
   protagonist?: string;

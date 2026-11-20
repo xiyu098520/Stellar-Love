@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { activeProfile, loadSettings, loadWorld, saveSettings, saveWorld } from '@/lib/store';
+import { activeProfile, loadSettings, loadWorld, saveSettings } from '@/lib/store';
 import type { Settings, World } from '@/lib/types';
 
 export default function SettingsPage() {
@@ -11,35 +11,12 @@ export default function SettingsPage() {
   const [s, setS] = useState<Settings>({ profiles: [], active: {} });
   const [world, setWorld] = useState<World | null>(null);
   const [msg, setMsg] = useState('');
-  const worldInput = useRef<HTMLInputElement>(null);
   const wallInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setS(loadSettings());
     setWorld(loadWorld());
   }, []);
-
-  async function importWorld(file: File) {
-    try {
-      const text = await file.text();
-      const j = JSON.parse(text) as World;
-      if (!Array.isArray(j.blocks) || !Array.isArray(j.characters)) {
-        setMsg('不是剧本文件：缺少 blocks 或 characters');
-        return;
-      }
-      const w: World = {
-        ...j,
-        id: j.id || `w_${Date.now().toString(36)}`,
-        title: j.title || '未命名剧本',
-        updatedAt: Date.now(),
-      };
-      saveWorld(w);
-      setWorld(w);
-      setMsg(`已载入：${w.title}`);
-    } catch (e) {
-      setMsg('导入失败：' + (e instanceof Error ? e.message : '文件格式不对'));
-    }
-  }
 
   async function pickWallpaper(file: File) {
     const dataUrl = await new Promise<string>((resolve, reject) => {
@@ -94,36 +71,15 @@ export default function SettingsPage() {
             </svg>
           </Link>
 
-          <div className="section-title">剧本</div>
-          <div className="muted">
-            {world ? `当前：${world.title} · ${world.blocks.length} 块 · ${world.characters.length} 人` : '还没有导入剧本'}
-          </div>
-          <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
-            <button className="btn" onClick={() => worldInput.current?.click()}>导入剧本</button>
-            {world && (
-              <button
-                className="btn ghost"
-                onClick={() => {
-                  saveWorld(null);
-                  setWorld(null);
-                  setMsg('已移除剧本');
-                }}
-              >
-                移除
-              </button>
-            )}
-          </div>
-          <input
-            ref={worldInput}
-            type="file"
-            accept="application/json,.json"
-            hidden
-            onChange={e => {
-              const f = e.target.files?.[0];
-              if (f) importWorld(f);
-              e.target.value = '';
-            }}
-          />
+          <Link href="/settings/world" className="menu-row">
+            <span className="k">剧本</span>
+            <span className="v">
+              {world ? `${world.title} · ${world.blocks.length} 块 · ${world.characters.length} 人` : '未导入'}
+            </span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4">
+              <path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </Link>
 
           <div className="section-title">大厅壁纸</div>
           <div className="muted">{s.wallpaperName || '默认壁纸'}</div>
