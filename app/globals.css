@@ -35,7 +35,10 @@ input, textarea, select { font-family: inherit; }
   overflow: hidden;
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
+  background: linear-gradient(180deg, #12101a 0%, #0d0b10 45%, #0b0a0f 100%);
 }
+/* 子页面（设定/人物/阅读器）不透明，壁纸只在主屏透出 */
+.page > .wallpaper { display: none; }
 
 /* 壁纸层 */
 .wallpaper {
@@ -473,18 +476,19 @@ button.off::after { display: none; }
 
 /* ===== 大厅修正：锁定滚动、壁纸满屏、加金饰 ===== */
 html, body { overscroll-behavior: none; }
-/* 文档比视口高出 240px：画布越过底部安全区，系统没东西可露出来 */
-html {
+html { color-scheme: dark; background-color: #0b0a0f; }
+body { background-color: transparent; }
+/* 只有大厅：文档比视口高出 240px，画布越过底部安全区；并锁死滚动 */
+html.lobby {
   height: calc(100% + 240px);
   overflow: hidden;
-  color-scheme: dark;
   background-color: #0b0a0f;
   background-image: var(--wall, none);
   background-size: cover;
   background-position: center top;
   background-repeat: no-repeat;
 }
-body { height: 100%; background-color: transparent; overflow: hidden; }
+html.lobby body { height: 100%; overflow: hidden; }
 .stage {
   position: fixed;
   inset: 0;

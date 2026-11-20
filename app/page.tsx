@@ -85,10 +85,13 @@ export default function Lobby() {
 
   // 壁纸同时铺到 html 层，页面之外露出的区域也是壁纸，不是纯黑
   useEffect(() => {
-    if (!wall) return;
-    document.documentElement.style.setProperty('--wall', `url("${wall}")`);
+    const el = document.documentElement;
+    el.classList.add('lobby');
+    if (!wall) return () => { el.classList.remove('lobby'); };
+    el.style.setProperty('--wall', `url("${wall}")`);
     return () => {
-      document.documentElement.style.removeProperty('--wall');
+      el.style.removeProperty('--wall');
+      el.classList.remove('lobby');
     };
   }, [wall]);
 
@@ -157,7 +160,7 @@ export default function Lobby() {
         </button>
       )}
 
-      <div className="hud-foot">{world ? world.title : '未载入剧本'} · v0.1.8</div>
+      <div className="hud-foot">{world ? world.title : '未载入剧本'} · v0.1.9</div>
       </main>
     </>
   );
