@@ -41,7 +41,9 @@ export type Character = {
   /** NPC：说到这些词就出现 */
   keywords?: string[];
   /** NPC：怎么出现 */
-  mode?: 'always' | 'keyword';
+  mode?: 'always' | 'keyword' | 'dynamic';
+  /** NPC：动态出现后持续几轮 */
+  rounds?: number;
   /** NPC：所属地区，对应场所里的名称 */
   region?: string;
   fields?: { k: string; v: string }[];
@@ -64,9 +66,9 @@ export type WorldBlock = {
   endKeywords?: string[];
 };
 
-/** 一条事件：节日、常驻、动态、普通事件 */
+/** 一条事件：信息、节日、普通事件 */
 export type EventEntry = WorldBlock & {
-  kind?: 'festival' | 'always' | 'dynamic' | 'event';
+  kind?: 'festival' | 'always' | 'event';
   /** 节日日期，如 12月24日 */
   date?: string;
   /** 一句话简介 */

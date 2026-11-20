@@ -225,9 +225,24 @@ export default function CharactersPage() {
                               onChange={e => patch(c.id, { mode: e.target.value as Character['mode'] })}
                             >
                               <option value="keyword">关键词 · 说到才出现</option>
+                              <option value="dynamic">动态 · 命中后持续几轮</option>
                               <option value="always">常驻 · 一直在场</option>
                             </select>
                           </div>
+                          {c.mode === 'dynamic' && (
+                            <div className="field">
+                              <label>持续轮数</label>
+                              <input
+                                type="number"
+                                min={1}
+                                max={20}
+                                value={String(c.rounds ?? 2)}
+                                onChange={e =>
+                                  patch(c.id, { rounds: Math.max(1, Math.min(20, Number(e.target.value) || 1)) })
+                                }
+                              />
+                            </div>
+                          )}
                           <div className="field">
                             <label>所属地区</label>
                             <select

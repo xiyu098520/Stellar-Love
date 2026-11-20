@@ -162,6 +162,13 @@ export function touchHits(world: World, save: Save): Save {
     });
   scan(world.events);
   scan(world.extras);
+  scan(world.placeList);
+  (world.characters || []).forEach(n => {
+    if (n.role !== 'npc' || n.mode !== 'dynamic') return;
+    if (!(n.keywords || []).some(k => k.trim() && input.includes(k.trim()))) return;
+    hits[`npc:${n.id}`] = idx;
+    changed = true;
+  });
   if (!changed) return save;
   const state: GameState = { ...(save.state || emptyState()), hits };
   return { ...save, state };
@@ -281,12 +288,20 @@ export function buildSystem(world: World, save: Save): string {
 
   const { recent, place } = recentText(save);
   const npcs = world.characters.filter(c => c.role === 'npc' && c.name.trim());
-  const activeNpcs = npcs.filter(
-    n =>
-      n.mode === 'always' ||
+  const hits = save.state?.hits || {};
+  const idx = turnIndex(save);
+  const activeNpcs = npcs.filter(n => {
+    if (n.mode === 'always') return true;
+    if (n.mode === 'dynamic') {
+      const hit = hits[`npc:${n.id}`];
+      if (hit === undefined) return false;
+      return idx - hit <= (n.rounds ?? 2);
+    }
+    return (
       (n.keywords || []).some(k => k.trim() && recent.includes(k.trim())) ||
-      (!!n.region && (place.includes(n.region) || recent.includes(n.region))),
-  );
+      (!!n.region && (place.includes(n.region) || recent.includes(n.region)))
+    );
+  });
 
   return `你是一款中文乙女向恋爱游戏的叙述者。你负责写这一回合的场面：旁白、对白、她的选择。玩家是女主角，用「你」称呼她。
 

@@ -24,9 +24,8 @@ const modeText: Record<string, string> = {
 };
 
 const EV_KINDS: { k: EventEntry['kind']; label: string }[] = [
+  { k: 'always', label: '信息' },
   { k: 'festival', label: '节日' },
-  { k: 'always', label: '常驻' },
-  { k: 'dynamic', label: '动态' },
   { k: 'event', label: '事件' },
 ];
 
@@ -458,16 +457,29 @@ export default function WorldPage() {
                         >
                           <option value="always">全局 · 每回合都带</option>
                           <option value="keyword">关键词 · 说到才带</option>
+                          <option value="dynamic">动态 · 命中后持续几轮</option>
                           <option value="off">关闭 · 暂不使用</option>
                         </select>
                       </div>
-                      {p.mode === 'keyword' && (
+                      {(p.mode === 'keyword' || p.mode === 'dynamic') && (
                         <div className="field">
                           <label>命中词</label>
                           <input
                             value={(p.keywords || []).join('、')}
                             onChange={e => patchPlace(i, { keywords: splitKw(e.target.value) })}
                             placeholder="多个用顿号隔开，如 西区、西城、码头那边"
+                          />
+                        </div>
+                      )}
+                      {p.mode === 'dynamic' && (
+                        <div className="field">
+                          <label>持续轮数</label>
+                          <input
+                            type="number"
+                            min={1}
+                            max={20}
+                            value={String(p.rounds ?? 2)}
+                            onChange={e => patchPlace(i, { rounds: Math.max(1, Math.min(20, Number(e.target.value) || 1)) })}
                           />
                         </div>
                       )}
@@ -528,7 +540,11 @@ export default function WorldPage() {
               </div>
 
               <div className="tip" style={{ margin: '10px 0' }}>
-                {evTab === 'always' ? '常驻：每回合都会交给模型。' : '关键词：只在这一轮注入；动态：命中后连续注入几轮。'}
+                {evTab === 'always'
+                  ? '信息：平时不占篇幅，说到才带；也可以选全局，每回合都带。'
+                  : evTab === 'festival'
+                    ? '节日：日期临近或提到关键词时注入。'
+                    : '事件：用关键词或地点触发，用结束词收尾。'}
               </div>
 
               {filtered.map(({ e, i }) => (
