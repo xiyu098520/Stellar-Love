@@ -489,20 +489,49 @@ function PlayInner() {
           state: seedState(world, touched.state || emptyState()),
         };
         const messages = buildMessages(world, seeded);
-        const raw = await chat(activeProfile(settings, 'story'), messages, { json: true, maxTokens: 4000 });
-        let out: ModelOut;
-        try {
-          out = parseJSON<ModelOut>(raw);
-        } catch {
-          out = { segments: [{ type: 'narration', text: raw }], choices: [] };
+        const storyApi = activeProfile(settings, 'story');
+        const parseOut = (s: string): ModelOut | null => {
+          try {
+            const o = parseJSON<ModelOut>(s);
+            if (!o?.segments?.some(x => x && typeof x.text === 'string' && x.text.trim())) return null;
+            return o;
+          } catch {
+            return null;
+          }
+        };
+
+        let raw = await chat(storyApi, messages, { json: true, maxTokens: 4000 });
+        let out = parseOut(raw);
+        // 输出坏了就带着原话再要一次，别让这一回合的结算直接丢掉
+        if (!out) {
+          const retry = await chat(
+            storyApi,
+            [
+              ...messages,
+              { role: 'assistant', content: raw.slice(0, 1500) },
+              {
+                role: 'user',
+                content:
+                  '上面这条不能用。请严格按前面要求的 JSON 对象重新输出这一回合：要有 segments，旁白用 narration，台词用 dialogue 并带 name；不要解释，不要代码块围栏。',
+              },
+            ],
+            { json: true, maxTokens: 4000 },
+          );
+          const again = parseOut(retry);
+          if (again) {
+            out = again;
+            raw = retry;
+          }
         }
-        const segments = (out.segments || []).filter(
+
+        let segments = (out?.segments || []).filter(
           s => s && typeof s.text === 'string' && s.text.trim(),
         );
+        if (!segments.length) segments = [{ type: 'narration', text: raw }];
 
         const base = seeded.state || emptyState();
         // 钟由程序走：模型只报这一段过了多少分钟
-        const spent = out.settle?.minutes;
+        const spent = out?.settle?.minutes;
         const clock = advance(base.clock || initClock(world), Number(spent ?? 15));
         const state: GameState = {
           ...base,
@@ -511,22 +540,22 @@ function PlayInner() {
           clock,
           time: clockText(clock),
         };
-        if (out.place) state.place = out.place;
+        if (out?.place) state.place = out.place;
 
         const turn: Turn = {
           role: 'assistant',
           text: segments.map(s => s.text).join('\n'),
           segments,
-          choices: (out.choices || []).slice(0, 4),
+          choices: (out?.choices || []).slice(0, 4),
           time: state.time,
-          place: out.place,
+          place: out?.place,
         };
 
         const settled = applySettle(
           world,
           state,
-          out.settle,
-          JSON.stringify(out.settle ?? null),
+          out?.settle,
+          JSON.stringify(out?.settle ?? null),
           nextSave.turns.length,
           activeBlocks(world, seeded).map(b => b.title),
           nextSave.kind === 'main',

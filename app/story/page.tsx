@@ -91,6 +91,13 @@ export default function StoryPage() {
                 <span className="muted" style={{ fontSize: 11 }}>
                   {total ? `第 ${chapters} 章 · ${((total - 1) % CHAPTER_SIZE) + 1} / ${CHAPTER_SIZE} 回合` : '还没开场'}
                 </span>
+                <Link
+                  href="/saves"
+                  className="mini"
+                  style={{ marginLeft: 'auto', textDecoration: 'none' }}
+                >
+                  存档管理
+                </Link>
               </div>
 
               <div className="section-title">章节</div>

@@ -1174,6 +1174,40 @@ body { background: transparent; }
 .sum-text { margin-top: 6px; font-size: 12px; line-height: 1.8; color: var(--ink-2); }
 .sum-text.empty { color: var(--ink-3); }
 
+/* ---- 存档 ---- */
+.save-row {
+  padding: 14px;
+  margin-bottom: 10px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: rgba(255, 255, 255, .02);
+}
+.save-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  letter-spacing: .06em;
+}
+.save-head .muted { font-size: 10px; }
+.save-title { letter-spacing: .12em; }
+.save-name {
+  flex: 1;
+  min-width: 100px;
+  padding: 7px 9px;
+  background: rgba(255, 255, 255, .035);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 13px;
+  outline: none;
+}
+.save-name:focus { border-color: var(--gold-soft); }
+.save-meta { margin-top: 6px; font-size: 10px; letter-spacing: .06em; color: var(--ink-3); }
+.save-actions { display: flex; gap: 8px; margin-top: 10px; }
+
 .log-item {
   padding: 14px 0;
   border-bottom: 1px solid rgba(201, 168, 106, .1);
