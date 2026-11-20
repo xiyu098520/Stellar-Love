@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { chat, parseJSON } from '@/lib/llm';
 import { activeBlocks, buildMessages, buildSummaryMessages, touchHits } from '@/lib/prompt';
 import { applyDelta, clampAttr, emptyState, seedState, snapDelta, stageOf } from '@/lib/affinity';
-import { advance, clockShort, clockText, initClock } from '@/lib/clock';
+import { advance, clockShort, clockText, clockValue, initClock } from '@/lib/clock';
 import { chapterLabel, chapterTurns, numberedTurns } from '@/lib/chapter';
 import {
   activeProfile,
@@ -644,7 +644,52 @@ function PlayInner() {
     );
   }
 
+  /** 个人线回到主线：时间往前走，好感带回去；这段剧情本身留在个人线里 */
+  async function exitRoute() {
+    if (!save || save.kind !== 'route') return;
+    if (!confirm('回主线？这条个人线会留在这里，随时可以回来。回主线后，这里发生的事不会被提起。')) return;
+    if (save.parentId) {
+      const main = await getSave(save.parentId);
+      if (main) {
+        const rc = save.state?.clock;
+        const mc = main.state?.clock;
+        const clock = rc && (!mc || clockValue(rc) > clockValue(mc)) ? rc : mc;
+        const rid = save.routeOf;
+        const next: Save = {
+          ...main,
+          state: {
+            ...(main.state || emptyState()),
+            clock: clock || main.state?.clock,
+            time: clock ? clockText(clock) : main.state?.time,
+            attrs: save.state?.attrs ?? main.state?.attrs,
+            affinity: {
+              ...(main.state?.affinity || {}),
+              ...(rid && save.state?.affinity?.[rid] !== undefined
+                ? { [rid]: save.state.affinity[rid] }
+                : {}),
+            },
+            charAttrs: {
+              ...(main.state?.charAttrs || {}),
+              ...(rid && save.state?.charAttrs?.[rid]
+                ? { [rid]: save.state.charAttrs[rid] }
+                : {}),
+            },
+          },
+          updatedAt: Date.now(),
+        };
+        await putSave(next);
+        router.push(`/play?save=${next.id}`);
+        return;
+      }
+    }
+    router.push('/story');
+  }
+
   const started = entries.length > 0;
+  const routeName =
+    save.kind === 'route'
+      ? world?.characters.find(c => c.id === save.routeOf)?.name || ''
+      : '';
 
   return (
     <main className="page">
@@ -655,11 +700,27 @@ function PlayInner() {
 
       <div className="sheet">
         <div className="topbar">
-          <button className="back" onClick={() => router.push(readMode ? '/story' : '/')}>返回</button>
+          <button
+            className="back"
+            onClick={() => router.push(readMode ? '/story' : save.kind === 'route' ? '/routes' : '/')}
+          >
+            返回
+          </button>
           <div className="title">
-            {save.kind === 'main' ? (chapter ? `第${chapter}章` : '主线') : '个人线'}
+            {save.kind === 'main' ? (chapter ? `第${chapter}章` : '主线') : `个人线${routeName ? ` · ${routeName}` : ''}`}
           </div>
-          <Link href="/ledger" className="back" style={{ marginLeft: 'auto', marginRight: 14 }}>结算</Link>
+          {save.kind === 'route' && !readMode && (
+            <button className="back" onClick={exitRoute} style={{ marginLeft: 'auto', marginRight: 14 }}>
+              回主线
+            </button>
+          )}
+          <Link
+            href="/ledger"
+            className="back"
+            style={{ marginLeft: save.kind === 'route' && !readMode ? 0 : 'auto', marginRight: 14 }}
+          >
+            结算
+          </Link>
           <div className="right">
             {readMode
               ? '只读回放'
@@ -700,9 +761,9 @@ function PlayInner() {
               </div>
             ) : (
               <div className="turn" key={i}>
-                {(t.time || no) && (
+                {(t.time || (save.kind === 'main' && no)) && (
                   <div className="meta">
-                    {no ? `${chapterLabel(no)} · ` : ''}
+                    {save.kind === 'main' && no ? `${chapterLabel(no)} · ` : ''}
                     {t.time}
                     {t.place ? ` · ${t.place}` : ''}
                   </div>

@@ -55,3 +55,8 @@ export function clockText(c: Clock): string {
 export function clockShort(c: Clock): string {
   return `${c.m}月${c.d}日 ${pad(Math.floor(c.min / 60))}:${pad(c.min % 60)}`;
 }
+
+/** 只用来比先后，不显示 */
+export function clockValue(c: Clock): number {
+  return ((c.y * 12 + c.m) * 31 + c.d) * 1440 + c.min;
+}

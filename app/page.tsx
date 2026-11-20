@@ -117,10 +117,10 @@ export default function Lobby() {
       </Link>
 
       <div className="hud-side">
-        <button className="off">
+        <Link href="/routes" className="hud-link" prefetch>
           <span className="en">ROUTE</span>
           <span className="cn">个人线</span>
-        </button>
+        </Link>
         <button className="off">
           <span className="en">SIDE</span>
           <span className="cn">番外</span>
@@ -152,7 +152,7 @@ export default function Lobby() {
         </Link>
       )}
 
-      <div className="hud-foot">{world ? world.title : '未载入剧本'} · v0.2.30</div>
+      <div className="hud-foot">{world ? world.title : '未载入剧本'} · v0.2.31</div>
       </main>
     </>
   );

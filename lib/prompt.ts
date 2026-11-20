@@ -48,8 +48,16 @@ attrs：这一回合真正变动的自定义数值，写成数组；没有变动
   钱花出去、赚进来，都要报；不许直接改写余额，只报增减。
 同一件事只算一次，不要反复加。`;
 
-/** 主线：没有章节、没有终点，靠一条核心线索一直往下接 */
-function chapterText(world: World): string {
+/** 主线：没有章节、没有终点，靠一条核心线索一直往下接；个人线只写两个人 */
+function chapterText(world: World, save: Save): string {
+  if (save.kind === 'route') {
+    return [
+      '【个人线】',
+      '这条线里只有你和他，没有主线任务，也没有别人来打断。',
+      '时间一直往前，不用急着收尾；每一次见面都可以比上一次更近一点。',
+      '好感按现在的数值走，不要硬压回 30，也不要凭空跳到下一档。',
+    ].join('\n');
+  }
   const core = (world.outline || '').trim();
   return [
     '【主线】',
@@ -260,11 +268,12 @@ function stateText(world: World, save: Save): string {
   const rows = Object.entries(st.affinity || {}).map(([id, v]) => {
     const c = world.characters.find(x => x.id === id);
     const name = c?.name || id;
-    const stage = stageOf(save.kind === 'main' ? Math.min(30, v) : v);
+    const shown = save.kind === 'main' ? Math.min(30, v) : v;
+    const stage = stageOf(shown);
     const extra = (c?.attrs || [])
       .map(a => `${a.name} ${st.charAttrs?.[id]?.[a.id] ?? a.init}`)
       .join('，');
-    return `- ${name}：${v}（${stage}）${STAGE_HINT[stage] || ''}${extra ? `｜${extra}` : ''}`;
+    return `- ${name}：${shown}（${stage}）${STAGE_HINT[stage] || ''}${extra ? `｜${extra}` : ''}`;
   });
   const mine = (world.attrs || [])
     .filter(a => a.name.trim())
@@ -357,7 +366,7 @@ ${attrDefsText(world) ? `\n${attrDefsText(world)}` : ''}
 时间和地点要接着上一回合，不许跳回白天、不许换城市。
 时间由系统给出，你只报这一回合过了几分钟；正文里可以写「天黑了」「快打烊了」，但不要写具体钟点。
 
-${chapterText(world)}
+${chapterText(world, save)}
 
 ${intimacyText()}
 
@@ -402,8 +411,21 @@ export function buildMessages(world: World, save: Save): ChatMessage[] {
     history.push({ role: t.role, content: flatten(t) });
   }
 
-  if (history.length === 0 && world.opening) {
-    history.push({ role: 'user', content: `开场：\n${world.opening}\n\n请从这里接着写第一回合。` });
+  if (history.length === 0) {
+    const routeLead =
+      save.kind === 'route' && save.routeOf
+        ? world.characters.find(c => c.id === save.routeOf)
+        : undefined;
+    if (routeLead) {
+      history.push({
+        role: 'user',
+        content: `现在是${routeLead.name}的个人线第一回合。时间地点接着主线这里：${
+          save.state?.time || '未定'
+        }${save.state?.place ? `，${save.state.place}` : ''}。请写你们碰面的这一刻，从眼下的场景直接开始，不要重述世界观，也不要写开场白。`,
+      });
+    } else if (world.opening) {
+      history.push({ role: 'user', content: `开场：\n${world.opening}\n\n请从这里接着写第一回合。` });
+    }
   }
 
   const memo = memory.length
