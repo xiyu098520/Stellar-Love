@@ -146,7 +146,8 @@ type Beat = { type: 'dialogue' | 'narration'; who?: string; text: string };
 function beatsOf(segments: Segment[] | undefined): Beat[] {
   const out: Beat[] = [];
   for (const seg of segments || []) {
-    if (seg.type === 'dialogue') out.push({ type: 'dialogue', who: seg.who, text: seg.text });
+    if (seg.type === 'dialogue')
+      splitNarration(seg.text).forEach(text => out.push({ type: 'dialogue', who: seg.who, text }));
     else splitNarration(seg.text).forEach(text => out.push({ type: 'narration', text }));
   }
   return out;
