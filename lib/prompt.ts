@@ -50,7 +50,8 @@ const STAGE_HINT: Record<string, string> = {
 
 function recentText(save: Save): { recent: string; place: string } {
   const place = save.state?.place || '';
-  const recent = [...save.turns.slice(-3).map(flatten), place].join('\n');
+  // 5 条 ≈ 两整轮（每轮一问一答），命中后能撑两轮
+  const recent = [...save.turns.slice(-5).map(flatten), place].join('\n');
   return { recent, place };
 }
 

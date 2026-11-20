@@ -173,7 +173,7 @@ export default function Lobby() {
         </Link>
       )}
 
-      <div className="hud-foot">{world ? world.title : '未载入剧本'} · v0.2.10</div>
+      <div className="hud-foot">{world ? world.title : '未载入剧本'} · v0.2.11</div>
       </main>
     </>
   );
