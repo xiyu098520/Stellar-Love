@@ -211,6 +211,14 @@ export type UndoSnapshot = {
   state: GameState;
 };
 
+/** 一回合的事件摘要：只记事实，八十个字以内 */
+export type TurnSummary = {
+  /** 第几个回合，从 1 开始 */
+  turn: number;
+  text: string;
+  at: number;
+};
+
 export type Save = {
   id: string;
   worldId: string;
@@ -224,6 +232,8 @@ export type Save = {
   turns: Turn[];
   relations: Relation[];
   state?: GameState;
+  /** 每回合一条，原文还在，只是发给模型时前面几条换成摘要 */
+  summaries?: TurnSummary[];
   /** 只留一级：撤回上一回合 */
   undo?: UndoSnapshot;
   createdAt: number;

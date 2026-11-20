@@ -4,7 +4,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { chat, parseJSON } from '@/lib/llm';
-import { activeBlocks, buildMessages, touchHits } from '@/lib/prompt';
+import { activeBlocks, buildMessages, buildSummaryMessages, touchHits } from '@/lib/prompt';
 import { applyDelta, clampAttr, emptyState, seedState, snapDelta, stageOf } from '@/lib/affinity';
 import { advance, clockShort, clockText, initClock } from '@/lib/clock';
 import { chapterLabel, chapterTurns, numberedTurns } from '@/lib/chapter';
@@ -438,6 +438,39 @@ function PlayInner() {
     </div>
   );
 
+  /** 一回合结束就在后台摘一次；摘要只给以后用，不影响这一段正文 */
+  const summarizeTurn = useCallback(
+    async (done: Save, turnNo: number, turn: Turn, herWords: string) => {
+      if (!settings || !world) return;
+      const profile = activeProfile(settings, 'assistant');
+      if (!profile.baseUrl.trim() || !profile.model.trim()) return;
+      try {
+        const raw = await chat(profile, buildSummaryMessages(world, done, turn, herWords), {
+          maxTokens: 300,
+        });
+        const text = raw
+          .replace(/["“”]/g, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+        if (!text) return;
+        const latest = await getSave(done.id);
+        if (!latest) return;
+        const target = latest.turns.filter(t => t.role === 'assistant')[turnNo - 1];
+        // 中途撤回或重写过，就对不上，不写
+        if (!target || target.text !== turn.text) return;
+        const summaries = [
+          ...(latest.summaries || []).filter(s => s.turn !== turnNo),
+          { turn: turnNo, text: text.slice(0, 120), at: Date.now() },
+        ].sort((a, b) => a.turn - b.turn);
+        await putSave({ ...latest, summaries });
+        setSave(cur => (cur && cur.id === latest.id ? { ...cur, summaries } : cur));
+      } catch {
+        // 摘要失败就算了，下回合再说
+      }
+    },
+    [settings, world],
+  );
+
   const run = useCallback(
     async (nextSave: Save) => {
       if (!world || !settings) return;
@@ -509,6 +542,9 @@ function PlayInner() {
         await putSave(done);
         setSeen(1);
         setSave(done);
+        const last = nextSave.turns[nextSave.turns.length - 1];
+        const herWords = last && last.role === 'user' ? last.text : '';
+        void summarizeTurn(done, done.turns.filter(t => t.role === 'assistant').length, turn, herWords);
       } catch (e) {
         setErr(e instanceof Error ? e.message : '生成失败');
         const failed: Save = { ...nextSave, undo, updatedAt: Date.now() };
@@ -518,7 +554,7 @@ function PlayInner() {
         setBusy(false);
       }
     },
-    [world, settings],
+    [world, settings, summarizeTurn],
   );
 
   async function begin() {
@@ -551,6 +587,9 @@ function PlayInner() {
       ...save,
       turns: save.turns.slice(0, u.turns),
       state: u.state,
+      summaries: (save.summaries || []).filter(
+        s => s.turn <= save.turns.slice(0, u.turns).filter(t => t.role === 'assistant').length,
+      ),
       undo: undefined,
       updatedAt: Date.now(),
     };

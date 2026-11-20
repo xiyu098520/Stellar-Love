@@ -2,6 +2,7 @@
 
 import type { ChatMessage } from './llm';
 import { emptyState, stageOf } from './affinity';
+import { chapterLabel } from './chapter';
 import { clockText } from './clock';
 import type { Character, GameState, Save, Turn, World, WorldBlock } from './types';
 
@@ -379,11 +380,71 @@ export function flatten(t: Turn): string {
 export function buildMessages(world: World, save: Save): ChatMessage[] {
   const system = buildSystem(world, save);
   const history: ChatMessage[] = [];
+  const memory: string[] = [];
+  const sums = new Map((save.summaries || []).map(s => [s.turn, s.text]));
+  const total = save.turns.filter(t => t.role === 'assistant').length;
+  const cut = Math.max(0, total - KEEP_ROUNDS);
+  let no = 0;
+
   for (const t of save.turns) {
+    if (t.role === 'assistant') no += 1;
+    if (cut > 0 && no <= cut) {
+      // 已经滑出窗口：有摘要就只发摘要，没有就用一小截原文兜底
+      if (t.role === 'assistant') {
+        const s = sums.get(no);
+        const label = chapterLabel(no);
+        memory.push(s ? `- ${label}：${s}` : `- ${label}：${flatten(t).slice(0, 160)}`);
+      } else if (!sums.has(no + 1)) {
+        memory.push(`- 她说：${t.text.slice(0, 80)}`);
+      }
+      continue;
+    }
     history.push({ role: t.role, content: flatten(t) });
   }
+
   if (history.length === 0 && world.opening) {
     history.push({ role: 'user', content: `开场：\n${world.opening}\n\n请从这里接着写第一回合。` });
   }
-  return [{ role: 'system', content: system }, ...history];
+
+  const memo = memory.length
+    ? `\n\n【更早的经过】\n前面几回合已经滑出原文窗口，下面是当时留下的事件摘要。钱、礼物、约定、称呼都在里面，接着它们写，不要重新问已经发生过的事。\n${memory.join('\n')}`
+    : '';
+
+  return [{ role: 'system', content: system + memo }, ...history];
+}
+
+/** 最近保留原文的回合数；再往前只发摘要 */
+export const KEEP_ROUNDS = 5;
+
+const SUMMARY_RULE = `你在给一段中文乙女游戏剧情做事件摘要。只写事实，不写文笔。
+要求：
+- 八十个字以内，能更短就短，不要硬凑。
+- 只写这一回合真正发生的事，一到三件，按顺序。
+- 钱写清：谁给谁多少、为什么。
+- 礼物或物品写清：谁给谁、是什么。
+- 约定写清：谁答应了什么、什么时候、做到没有。
+- 称呼变化、身份线索、关系变化，一句话带过。
+- 删掉天气、环境、形容词、心理描写和语气词。
+- 不要编造没发生的事。
+- 直接输出摘要正文，不要标题、引号、项目符号，也不要 JSON。`;
+
+/** 一回合结束就摘一次，摘要不发给模型，等滑出窗口才用 */
+export function buildSummaryMessages(
+  world: World,
+  save: Save,
+  turn: Turn,
+  herWords: string,
+): ChatMessage[] {
+  const onRoute = save.kind === 'route' && save.routeOf;
+  const who = onRoute ? world.characters.find(c => c.id === save.routeOf)?.name : '';
+  const body = [herWords ? `她说：${herWords}` : '', flatten(turn)].filter(Boolean).join('\n\n');
+  return [
+    { role: 'system', content: SUMMARY_RULE },
+    {
+      role: 'user',
+      content: `${who ? `这条线是${who}。` : ''}地点：${
+        turn.place || save.state?.place || '未写明'
+      }；时间：${turn.time || save.state?.time || '未写明'}。\n\n${body}`,
+    },
+  ];
 }
