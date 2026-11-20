@@ -14,8 +14,7 @@ const FORMAT = `只输出一个 JSON 对象，不要任何解释、不要代码�
   "time": "10月8日 周三 · 傍晚 19:20",
   "place": "旧街 · 金记",
   "settle": { "who": "砂金", "delta": 3, "reason": "你说中了他喜欢的老唱片", "minutes": 15,
-              "attrs": [{ "who": "", "name": "金钱", "delta": -38, "reason": "买了一杯手冲" }] },
-  "chapter": { "done": false, "next": "下一章要办的那件事" }
+              "attrs": [{ "who": "", "name": "金钱", "delta": -38, "reason": "买了一杯手冲" }] }
 }
 tone 可选，只能是 sighs、whispers、softly、laughs、sad、happy、angry、excited、nervous、calm、tired、sarcastic 之一。
 segments 至少 3 段、正文合计 260 到 520 字。choices 给 2 到 4 条，每条不超过 18 字，写成她能做的事，不写心理活动。`;
@@ -41,25 +40,18 @@ attrs：这一回合真正变动的自定义数值，写成数组；没有变动
   钱花出去、赚进来，都要报；不许直接改写余额，只报增减。
 同一件事只算一次，不要反复加。`;
 
-/** 章节：她自己不写大纲时，由模型安排走向 */
-function chapterText(world: World, save: Save): string {
-  if (world.chapterMode === 'manual') return '';
-  const cur = save.state?.chapter;
-  const total = world.totalChapters || 0;
-  const idx = cur?.index || 1;
-  const left = total ? Math.max(1, total - idx + 1) : 0;
-  const lines = [
-    '【章节】',
-    '玩家不会写大纲，这一章要发生什么由你自己安排。你只需要守住下面几条：',
-    '- 一章只办一件事。这件事要有头有尾，这一章之内办完，不要拖到下一章，也不要一章里塞两件事。',
-    '- 每一章至少推进一次关系：他说了一句新的话、做了一件以前不会做的事、或者你知道了关于他的一件事。',
-    `- 这一章出事的人不能超过一个${world.characters.filter(c => c.role !== 'npc').length > 1 ? '；其他男主角这一章不出场' : ''}。`,
-    total ? `- 全书大约 ${total} 章，现在是第 ${idx} 章。` : '',
-    left && left <= 2 ? '- 已经接近尾声：把悬着的事一件件办完，不要再引入新的人、新的麻烦。' : '',
-    cur?.goal ? `- 这一章要办完的事：${cur.goal}` : '- 这是新的一章，先给这一章定一件事，然后在正文里开始办它。',
-    '每回合在 chapter 里申报：这一章办完没有、下一章要办什么。这一章没办完就写 done: false、next: ""。',
-  ].filter(Boolean);
-  return lines.join('\n');
+/** 主线：没有章节、没有终点，靠一条核心线索一直往下接 */
+function chapterText(world: World): string {
+  const core = (world.outline || '').trim();
+  return [
+    '【主线】',
+    '这是一条没有终点的主线，不是有限的几章。你不写结局，也不主动收尾：每一回合往后接一点，一直接下去。',
+    core
+      ? `主线的核心线索：${core}\n所有事件都要挂在这条线索上；推进可以慢，但每一回合都得是它的一部分。`
+      : '还没有给出核心线索：从世界观和开局里自己找出一个能长期追下去的事，把它当成主线核心，不要凭空结束它。',
+    '不要写「第几章」「本章完」这类字样，也不要在正文里宣告阶段结束。',
+    '需要换地方、换日子的时候，让事情自己把场景带过去：一件办完了，下一件自然浮上来。',
+  ].join('\n');
 }
 
 const STAGE_HINT: Record<string, string> = {
@@ -306,7 +298,7 @@ ${attrDefsText(world) ? `\n${attrDefsText(world)}` : ''}
 结尾不要收束，要留一个可以接着往下过下去的地方。
 时间和地点要接着上一回合，不许跳回白天、不许换城市。
 
-${chapterText(world, save)}
+${chapterText(world)}
 
 ${SETTLE_RULE}
 
