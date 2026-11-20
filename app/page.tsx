@@ -157,7 +157,7 @@ export default function Lobby() {
         </button>
       )}
 
-      <div className="hud-foot">{world ? world.title : '未载入剧本'} · v0.1.5</div>
+      <div className="hud-foot">{world ? world.title : '未载入剧本'} · v0.1.6</div>
       </main>
     </>
   );
