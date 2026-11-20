@@ -1,10 +1,11 @@
 'use client';
 
-import type { ApiKind, ApiProfile, Save, Settings, World } from './types';
+import type { ApiKind, ApiProfile, Save, Settings, VoiceClip, World } from './types';
 
 const DB_NAME = 'stellar-love';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE = 'saves';
+const STORE_VOICES = 'voices';
 const LS_SETTINGS = 'sl.settings';
 const LS_WORLD = 'sl.world';
 const LS_LAST = 'sl.lastSave';
@@ -23,6 +24,9 @@ function openDB(): Promise<IDBDatabase> {
         const db = req.result;
         if (!db.objectStoreNames.contains(STORE)) {
           db.createObjectStore(STORE, { keyPath: 'id' });
+        }
+        if (!db.objectStoreNames.contains(STORE_VOICES)) {
+          db.createObjectStore(STORE_VOICES, { keyPath: 'id' });
         }
       };
       req.onsuccess = () => resolve(req.result);
@@ -72,6 +76,40 @@ export async function delSave(id: string): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const tx = db.transaction(STORE, 'readwrite');
     tx.objectStore(STORE).delete(id);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function addVoiceClip(clip: VoiceClip): Promise<void> {
+  const db = await openDB();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORE_VOICES, 'readwrite');
+    tx.objectStore(STORE_VOICES).put(clip);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function listVoiceClips(): Promise<VoiceClip[]> {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_VOICES, 'readonly');
+    const req = tx.objectStore(STORE_VOICES).getAll();
+    req.onsuccess = () => {
+      const rows = (req.result as VoiceClip[]) || [];
+      rows.sort((a, b) => b.createdAt - a.createdAt);
+      resolve(rows);
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function delVoiceClip(id: string): Promise<void> {
+  const db = await openDB();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORE_VOICES, 'readwrite');
+    tx.objectStore(STORE_VOICES).delete(id);
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });

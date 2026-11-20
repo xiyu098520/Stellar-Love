@@ -191,6 +191,19 @@ export type GameState = {
   hits?: Record<string, number>;
 };
 
+/** 一条收藏下来的语音：合成一次，反复听 */
+export type VoiceClip = {
+  id: string;
+  characterId: string;
+  characterName: string;
+  worldId: string;
+  /** 台词原文 */
+  text: string;
+  /** 音频 dataURL（mp3 base64） */
+  audio: string;
+  createdAt: number;
+};
+
 export type Save = {
   id: string;
   worldId: string;

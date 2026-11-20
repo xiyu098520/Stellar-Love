@@ -222,32 +222,148 @@ input, textarea, select { font-family: inherit; }
 .meta { font-size: 10px; color: var(--ink-3); letter-spacing: .16em; margin: 14px 0 20px; }
 .turn { margin-bottom: 26px; }
 .narr { font-size: 14px; line-height: 2.15; color: var(--ink); letter-spacing: .045em; margin: 0 0 14px; }
-.dlg {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-  margin: 0 0 14px;
-  padding: 10px 12px;
-  border-left: 1px solid var(--gold-soft);
-  background: rgba(255, 255, 255, .025);
+/* 乙游式对话框：左上角名字，右上角播放与收藏 */
+.dlgbox {
+  position: relative;
+  margin: 26px 0 16px;
+  padding: 18px 16px 18px;
+  background: linear-gradient(180deg, rgba(26, 22, 32, .9), rgba(16, 14, 20, .94));
+  border: 1px solid rgba(201, 168, 106, .24);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, .3);
 }
-.dlg .who { flex: none; font-size: 11px; color: var(--gold); letter-spacing: .1em; padding-top: 3px; }
-.dlg .line { font-size: 14px; line-height: 1.95; }
-.dlg .line.tired, .dlg .line.softly { color: var(--ink); }
+.dlgbox-name {
+  position: absolute;
+  top: -11px;
+  left: 14px;
+  padding: 2px 12px;
+  background: #1a1620;
+  border: 1px solid var(--gold-soft);
+  color: var(--gold);
+  font-size: 11px;
+  letter-spacing: .18em;
+  line-height: 1.6;
+}
+.dlgbox-tools {
+  position: absolute;
+  top: -12px;
+  right: 10px;
+  display: flex;
+  gap: 4px;
+  padding: 2px 5px;
+  background: #1a1620;
+  border: 1px solid rgba(201, 168, 106, .16);
+}
+.dlgbox-tools button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+.dlgbox-tools button svg { width: 13px; height: 13px; }
+.dlgbox-tools button:hover, .dlgbox-tools button.on { color: var(--gold); }
+.dlgbox-tools button:disabled { opacity: .4; cursor: default; }
+.dlgbox-line { font-size: 15px; line-height: 2; letter-spacing: .04em; }
 .you { color: var(--ink-2); font-size: 13px; line-height: 1.9; border-right: 1px solid var(--line); padding-right: 10px; text-align: right; }
 
 /* 逐句显示：每句淡入，句子之间留一口气 */
 .beat { animation: beat-in .34s ease both; }
-.beat.dialogue { margin: 0 0 14px; }
+.beat.dialogue { margin: 0; }
 @keyframes beat-in {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: none; }
 }
-.voice-btn {
-  margin-left: 8px; padding: 0 4px; font-size: 9px; line-height: 1;
-  color: var(--ink-3); background: none; border: none; cursor: pointer;
+.ask .dock-icon {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: auto;
+  flex: none;
+  padding: 0 12px;
+  background: rgba(255, 255, 255, .03);
+  border: 1px solid var(--line);
+  color: var(--ink-3);
+  font-size: 11px;
+  letter-spacing: .08em;
 }
-.voice-btn:active { color: var(--gold); }
+.ask .dock-icon svg { width: 13px; height: 13px; }
+.ask .dock-icon:hover { color: var(--gold); border-color: var(--gold-soft); }
+
+/* 剧情回顾 */
+.review-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  padding-top: env(safe-area-inset-top);
+  background: rgba(8, 7, 10, .8);
+}
+.review-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  background: #0f0d13;
+  border-left: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+}
+.review-body { flex: 1; overflow-y: auto; padding: 16px 20px calc(30px + env(safe-area-inset-bottom)); }
+.review-turn { margin-bottom: 26px; }
+.review-you {
+  font-size: 12px;
+  line-height: 1.85;
+  color: var(--ink-3);
+  border-left: 1px solid var(--line);
+  padding-left: 10px;
+  margin: 0 0 16px;
+}
+.review-dlg { margin: 0 0 10px; font-size: 13px; line-height: 1.95; }
+.review-dlg span { color: var(--gold); font-size: 10px; letter-spacing: .1em; margin-right: 8px; }
+
+/* 角色的语音库 */
+.voice-lib { margin-top: 18px; padding-top: 14px; border-top: 1px solid rgba(201, 168, 106, .16); }
+.voice-lib-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  letter-spacing: .18em;
+  color: var(--gold);
+  margin-bottom: 8px;
+}
+.voice-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid rgba(255, 255, 255, .04); }
+.voice-play {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--ink-3);
+}
+.voice-play svg { width: 12px; height: 12px; }
+.voice-play.on { color: var(--gold); border-color: var(--gold-soft); }
+.voice-text {
+  flex: 1;
+  font-size: 12px;
+  line-height: 1.8;
+  color: var(--ink-2);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
 .tap-hint {
   text-align: center; font-size: 10px; letter-spacing: .3em; color: var(--ink-3);
   padding: 20px 0 10px; animation: hint-fade 1.8s ease-in-out infinite;

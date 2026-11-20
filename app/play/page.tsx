@@ -7,8 +7,30 @@ import { chat, parseJSON } from '@/lib/llm';
 import { activeBlocks, buildMessages, touchHits } from '@/lib/prompt';
 import { applyDelta, clampAttr, emptyState, seedState, snapDelta, stageOf } from '@/lib/affinity';
 import { advance, clockShort, clockText, initClock } from '@/lib/clock';
-import { activeProfile, getSave, latestSaveOf, loadSettings, loadWallpaper, loadWorld, putSave } from '@/lib/store';
-import type { AffinityEntry, GameState, Save, Segment, Settings, Turn, World } from '@/lib/types';
+import {
+  activeProfile,
+  addVoiceClip,
+  delVoiceClip,
+  getSave,
+  latestSaveOf,
+  listVoiceClips,
+  loadSettings,
+  loadWallpaper,
+  loadWorld,
+  newId,
+  putSave,
+} from '@/lib/store';
+import type {
+  AffinityEntry,
+  Character,
+  GameState,
+  Save,
+  Segment,
+  Settings,
+  Turn,
+  VoiceClip,
+  World,
+} from '@/lib/types';
 
 type AttrSettle = { who?: string; name?: string; delta?: number; reason?: string };
 type Settle = {
@@ -25,6 +47,33 @@ type ModelOut = {
   place?: string;
   settle?: Settle | null;
 };
+
+const clipKey = (characterId: string, text: string) => `${characterId}\u0000${text}`;
+
+const IconPlay = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+    <path d="M8.5 5.5l9.5 6.5-9.5 6.5z" strokeLinejoin="round" />
+  </svg>
+);
+
+const IconStop = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+    <rect x="7" y="7" width="10" height="10" rx="1" />
+  </svg>
+);
+
+const IconBookmark = ({ on }: { on: boolean }) => (
+  <svg viewBox="0 0 24 24" fill={on ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.4">
+    <path d="M7 4h10v16l-5-4-5 4z" strokeLinejoin="round" />
+  </svg>
+);
+
+const IconClock = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4">
+    <circle cx="12" cy="12" r="7.5" />
+    <path d="M12 7.5V12l3 2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
 
 /** 把模型申报的结算落成一条日志 */
 function applySettle(
@@ -168,6 +217,8 @@ function PlayInner() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [draft, setDraft] = useState('');
+  const [review, setReview] = useState(false);
+  const [clips, setClips] = useState<Record<string, VoiceClip>>({});
   const bottomRef = useRef<HTMLDivElement>(null);
   /** 最后一段正文里已经点开了多少节拍；读到末尾才放选项和输入框 */
   const [seen, setSeen] = useState(9999);
@@ -182,6 +233,18 @@ function PlayInner() {
       if (!s) setErr('找不到这份存档，回大厅重新开始。');
     })();
   }, [saveId]);
+
+  useEffect(() => {
+    listVoiceClips()
+      .then(rows => {
+        const map: Record<string, VoiceClip> = {};
+        rows.forEach(v => {
+          map[clipKey(v.characterId, v.text)] = v;
+        });
+        setClips(map);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -200,41 +263,151 @@ function PlayInner() {
 
   const voiceProfile = settings ? activeProfile(settings, 'tts') : null;
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const cacheRef = useRef<Record<string, string>>({});
   const [speaking, setSpeaking] = useState('');
+  const [saving, setSaving] = useState('');
 
-  const speak = useCallback(
-    async (key: string, text: string) => {
-      if (!voiceProfile?.baseUrl) return;
-      try {
-        setSpeaking(key);
-        const res = await fetch(`${voiceProfile.baseUrl.replace(/\/+$/, '')}/audio/speech`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${voiceProfile.apiKey}`,
-          },
-          body: JSON.stringify({
-            model: voiceProfile.model || 'tts-1',
-            input: text,
-            voice: voiceProfile.voiceId || 'alloy',
-            speed: voiceProfile.speed || 1,
-            response_format: 'mp3',
-          }),
-        });
-        if (!res.ok) throw new Error(`语音接口 ${res.status}`);
-        const url = URL.createObjectURL(await res.blob());
-        audioRef.current?.pause();
-        const audio = new Audio(url);
-        audioRef.current = audio;
-        audio.onended = () => setSpeaking('');
-        await audio.play();
-      } catch (e) {
-        setErr(e instanceof Error ? e.message : '语音播放失败');
-        setSpeaking('');
-      }
+  const charOf = useCallback(
+    (name?: string) => {
+      const n = (name || '').trim();
+      if (!n || !world) return undefined;
+      return world.characters.find(c => c.name === n);
     },
-    [voiceProfile],
+    [world],
   );
+
+  async function synth(text: string): Promise<string> {
+    const p = voiceProfile!;
+    const res = await fetch(`${p.baseUrl.replace(/\/+$/, '')}/audio/speech`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${p.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: p.model || 'tts-1',
+        input: text,
+        voice: p.voiceId || 'alloy',
+        speed: p.speed || 1,
+        response_format: 'mp3',
+      }),
+    });
+    if (!res.ok) throw new Error(`语音接口 ${res.status}`);
+    const blob = await res.blob();
+    return new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => reject(new Error('音频读不出来'));
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  async function play(key: string, text: string, who?: string) {
+    const c = charOf(who);
+    const clip = c ? clips[clipKey(c.id, text)] : undefined;
+    try {
+      let url = clip?.audio || cacheRef.current[key];
+      if (!url) {
+        if (!voiceProfile?.baseUrl) {
+          setErr('还没有配语音接口，先去设定里填。');
+          return;
+        }
+        url = await synth(text);
+        cacheRef.current[key] = url;
+      }
+      audioRef.current?.pause();
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      setSpeaking(key);
+      audio.onended = () => setSpeaking('');
+      await audio.play();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : '语音播放失败');
+      setSpeaking('');
+    }
+  }
+
+  async function toggleFavorite(key: string, c: Character, text: string) {
+    if (!save) return;
+    const k = clipKey(c.id, text);
+    const exist = clips[k];
+    if (exist) {
+      try {
+        await delVoiceClip(exist.id);
+      } catch {}
+      setClips(prev => {
+        const next = { ...prev };
+        delete next[k];
+        return next;
+      });
+      return;
+    }
+    if (!voiceProfile?.baseUrl) {
+      setErr('还没有配语音接口，先去设定里填。');
+      return;
+    }
+    setErr('');
+    setSaving(key);
+    try {
+      const audio = cacheRef.current[key] || (await synth(text));
+      cacheRef.current[key] = audio;
+      const clip: VoiceClip = {
+        id: newId('voice'),
+        characterId: c.id,
+        characterName: c.name,
+        worldId: save.worldId,
+        text,
+        audio,
+        createdAt: Date.now(),
+      };
+      await addVoiceClip(clip);
+      setClips(prev => ({ ...prev, [k]: clip }));
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : '收藏失败');
+    } finally {
+      setSaving('');
+    }
+  }
+
+  const renderDlg = (who: string | undefined, text: string, key: string) => {
+    const c = charOf(who);
+    const clip = c ? clips[clipKey(c.id, text)] : undefined;
+    return (
+      <div className="dlgbox" key={key}>
+        <div className="dlgbox-name">{who}</div>
+        {(voiceProfile?.baseUrl || c) && (
+          <div className="dlgbox-tools">
+            {voiceProfile?.baseUrl && (
+              <button
+                className={speaking === key ? 'on' : ''}
+                title="播放这句"
+                onClick={e => {
+                  e.stopPropagation();
+                  play(key, text, who);
+                }}
+              >
+                {speaking === key ? <IconStop /> : <IconPlay />}
+              </button>
+            )}
+            {c && (
+              <button
+                className={clip ? 'on' : ''}
+                title={clip ? '取消收藏' : '收藏这句'}
+                disabled={saving === key}
+                onClick={e => {
+                  e.stopPropagation();
+                  toggleFavorite(key, c, text);
+                }}
+              >
+                <IconBookmark on={!!clip} />
+              </button>
+            )}
+          </div>
+        )}
+        <div className="dlgbox-line">{text}</div>
+      </div>
+    );
+  };
 
   const run = useCallback(
     async (nextSave: Save) => {
@@ -397,39 +570,12 @@ function PlayInner() {
                   ? beatsOf(t.segments).map((b, k) =>
                       k < seen ? (
                         <div className={`beat ${b.type}`} key={k}>
-                          {b.type === 'dialogue' ? (
-                            <div className="dlg">
-                              <div className="who">
-                                {b.who}
-                                {voiceProfile?.baseUrl && (
-                                  <button
-                                    className="voice-btn"
-                                    onClick={e => {
-                                      e.stopPropagation();
-                                      speak(`t${i}-${k}`, b.text);
-                                    }}
-                                  >
-                                    {speaking === `t${i}-${k}` ? '■' : '▶'}
-                                  </button>
-                                )}
-                              </div>
-                              <div className="line">{b.text}</div>
-                            </div>
-                          ) : (
-                            <p className="narr">{b.text}</p>
-                          )}
+                          {b.type === 'dialogue' ? renderDlg(b.who, b.text, `t${i}b${k}`) : <p className="narr">{b.text}</p>}
                         </div>
                       ) : null,
                     )
                   : (t.segments || []).map((seg, k) =>
-                      seg.type === 'dialogue' ? (
-                        <div className="dlg" key={k}>
-                          <div className="who">{seg.who}</div>
-                          <div className="line">{seg.text}</div>
-                        </div>
-                      ) : (
-                        <p className="narr" key={k}>{seg.text}</p>
-                      ),
+                      seg.type === 'dialogue' ? renderDlg(seg.who, seg.text, `t${i}b${k}`) : <p className="narr" key={k}>{seg.text}</p>,
                     )}
               </div>
             ),
@@ -454,6 +600,10 @@ function PlayInner() {
             </div>
           )}
           <div className="ask">
+            <button className="dock-icon" onClick={() => setReview(true)} title="剧情回顾">
+              <IconClock />
+              <span>回顾</span>
+            </button>
             <input
               value={draft}
               onChange={e => setDraft(e.target.value)}
@@ -464,6 +614,43 @@ function PlayInner() {
               disabled={busy}
             />
             <button onClick={() => send(draft)} disabled={busy}>↑</button>
+          </div>
+        </div>
+      )}
+
+      {review && (
+        <div className="review-mask">
+          <div className="review-panel">
+            <div className="topbar">
+              <button className="back" onClick={() => setReview(false)}>关闭</button>
+              <div className="title">剧情回顾</div>
+              <div className="right">{save.turns.filter(t => t.role === 'assistant').length} 回合</div>
+            </div>
+            <div className="review-body">
+              {!save.turns.length && <div className="muted">还没有内容。</div>}
+              {save.turns.map((t, i) =>
+                t.role === 'user' ? (
+                  <div className="review-you" key={i}>你：{t.text}</div>
+                ) : (
+                  <div className="review-turn" key={i}>
+                    <div className="meta">
+                      {t.time || ''}
+                      {t.place ? ` · ${t.place}` : ''}
+                    </div>
+                    {(t.segments || []).map((seg, k) =>
+                      seg.type === 'dialogue' ? (
+                        <div className="review-dlg" key={k}>
+                          <span>{seg.who}</span>
+                          {seg.text}
+                        </div>
+                      ) : (
+                        <p className="narr" key={k}>{seg.text}</p>
+                      ),
+                    )}
+                  </div>
+                ),
+              )}
+            </div>
           </div>
         </div>
       )}
