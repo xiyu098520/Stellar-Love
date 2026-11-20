@@ -202,25 +202,99 @@ export function saveSettings(s: Settings): void {
   localStorage.setItem(LS_SETTINGS, JSON.stringify(s));
 }
 
+/** 旧版只存一个剧本，迁移时包成列表 */
+const LS_WORLDS = 'sl.worlds';
+const LS_ACTIVE_WORLD = 'sl.worldId';
+
+function migrateWorld(w: World): World {
+  const next: World = { ...w };
+  if (!next.id) next.id = `w_${(next.updatedAt || Date.now()).toString(36)}`;
+  if (!Array.isArray(next.characters)) next.characters = [];
+  // 旧版「场所与势力」是一整块文本 → 拆成一条常驻地点
+  if (!next.placeList?.length && next.places?.trim()) {
+    next.placeList = [{ title: '场所与势力', content: next.places.trim(), mode: 'always' }];
+    next.places = '';
+  }
+  // 旧版「补充」→ 事件里的普通事件
+  if (!next.events?.length && next.extras?.length) {
+    next.events = next.extras.map(e => ({ ...e, kind: 'event' as const }));
+    next.extras = [];
+  }
+  if (!next.events) next.events = [];
+  return next;
+}
+
+function readAllWorlds(): World[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(LS_WORLDS);
+    if (raw) return (JSON.parse(raw) as World[]).map(migrateWorld);
+  } catch {}
+  try {
+    const old = localStorage.getItem(LS_WORLD);
+    if (old) {
+      const w = migrateWorld(JSON.parse(old) as World);
+      localStorage.setItem(LS_WORLDS, JSON.stringify([w]));
+      localStorage.setItem(LS_ACTIVE_WORLD, w.id);
+      localStorage.removeItem(LS_WORLD);
+      return [w];
+    }
+  } catch {}
+  return [];
+}
+
+function writeAllWorlds(list: World[]): void {
+  try {
+    localStorage.setItem(LS_WORLDS, JSON.stringify(list));
+  } catch {
+    alert('剧本太大了，浏览器存不下。请精简一点，或换一个浏览器。');
+  }
+}
+
+export function listWorlds(): World[] {
+  return readAllWorlds().sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
+export function activeWorldId(): string {
+  if (typeof window === 'undefined') return '';
+  return localStorage.getItem(LS_ACTIVE_WORLD) || '';
+}
+
 export function loadWorld(): World | null {
   if (typeof window === 'undefined') return null;
-  try {
-    const raw = localStorage.getItem(LS_WORLD);
-    if (raw) return JSON.parse(raw) as World;
-  } catch {}
-  return null;
+  const all = readAllWorlds();
+  if (!all.length) return null;
+  const id = activeWorldId();
+  return all.find(w => w.id === id) || all[0];
+}
+
+export function setActiveWorld(id: string): void {
+  localStorage.setItem(LS_ACTIVE_WORLD, id);
 }
 
 export function saveWorld(w: World | null): void {
-  if (!w) {
-    localStorage.removeItem(LS_WORLD);
-    return;
+  if (!w) return;
+  const all = readAllWorlds();
+  const i = all.findIndex(x => x.id === w.id);
+  if (i >= 0) all[i] = w;
+  else all.push(w);
+  writeAllWorlds(all);
+  setActiveWorld(w.id);
+}
+
+export function deleteWorld(id: string): void {
+  const all = readAllWorlds().filter(w => w.id !== id);
+  writeAllWorlds(all);
+  if (activeWorldId() === id) {
+    if (all[0]) setActiveWorld(all[0].id);
+    else localStorage.removeItem(LS_ACTIVE_WORLD);
   }
-  try {
-    localStorage.setItem(LS_WORLD, JSON.stringify(w));
-  } catch {
-    alert('剧本太大了，浏览器存不下。请换一个更大的浏览器或精简剧本。');
-  }
+}
+
+/** 某个剧本最近的一份存档 */
+export async function latestSaveOf(worldId: string): Promise<Save | undefined> {
+  const all = await listSaves();
+  return all.find(s => s.worldId === worldId);
 }
 
 export function lastSaveId(): string | null {

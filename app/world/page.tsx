@@ -3,31 +3,87 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { loadWorld, newId, saveWorld } from '@/lib/store';
-import type { AttrDef, World, WorldBlock } from '@/lib/types';
+import {
+  activeWorldId,
+  deleteWorld,
+  listWorlds,
+  newId,
+  saveWorld,
+  setActiveWorld,
+} from '@/lib/store';
+import type { AttrDef, EventEntry, World, WorldBlock } from '@/lib/types';
+
+const splitKw = (v: string) => v.split(/[,，、\s]+/).map(s => s.trim()).filter(Boolean);
+
+const modeText: Record<string, string> = {
+  always: '全局',
+  keyword: '关键词',
+  place: '地点',
+  off: '关闭',
+};
+
+const EV_KINDS: { k: EventEntry['kind']; label: string }[] = [
+  { k: 'festival', label: '节日' },
+  { k: 'always', label: '常驻' },
+  { k: 'dynamic', label: '动态' },
+  { k: 'event', label: '事件' },
+];
+
+type Tab = 'base' | 'world' | 'main' | 'event' | 'play';
 
 export default function WorldPage() {
   const router = useRouter();
+  const [view, setView] = useState<'list' | 'edit'>('list');
+  const [worlds, setWorlds] = useState<World[]>([]);
+  const [activeId, setActiveId] = useState('');
   const [w, setW] = useState<World | null>(null);
   const [msg, setMsg] = useState('');
-  const [open, setOpen] = useState<number | null>(null);
-  const [tab, setTab] = useState<'base' | 'world' | 'main' | 'play' | 'file'>('base');
+  const [open, setOpen] = useState<string | null>(null);
+  const [tab, setTab] = useState<Tab>('base');
+  const [evTab, setEvTab] = useState<EventEntry['kind']>('event');
+  const [q, setQ] = useState('');
   const [attrChar, setAttrChar] = useState('');
   const fileInput = useRef<HTMLInputElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const refresh = () => {
+    setWorlds(listWorlds());
+    setActiveId(activeWorldId());
+  };
+
   useEffect(() => {
-    const ww = loadWorld();
-    setW(ww);
-    const first = ww?.characters.find(c => c.identity);
-    if (first) setAttrChar(first.id);
+    refresh();
   }, []);
+
+  function openEdit(id: string) {
+    const target = listWorlds().find(x => x.id === id);
+    if (!target) return;
+    setW(target);
+    setView('edit');
+    setTab('base');
+    setOpen(null);
+    setMsg('');
+    setQ('');
+    const first = target.characters.find(c => c.role !== 'npc');
+    setAttrChar(first?.id || '');
+  }
+
+  function backToList() {
+    if (timer.current) clearTimeout(timer.current);
+    if (w) saveWorld(w);
+    setW(null);
+    setView('list');
+    refresh();
+  }
 
   function commit(next: World) {
     next.updatedAt = Date.now();
     setW({ ...next });
     if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => saveWorld({ ...next }), 350);
+    timer.current = setTimeout(() => {
+      saveWorld({ ...next });
+      refresh();
+    }, 350);
   }
 
   function patch(p: Partial<World>) {
@@ -35,10 +91,45 @@ export default function WorldPage() {
     commit({ ...w, ...p });
   }
 
-  function patchExtra(i: number, p: Partial<WorldBlock>) {
+  function patchPlace(i: number, p: Partial<WorldBlock>) {
     if (!w) return;
-    const extras = (w.extras || []).map((b, j) => (j === i ? { ...b, ...p } : b));
-    commit({ ...w, extras });
+    const placeList = (w.placeList || []).map((b, j) => (j === i ? { ...b, ...p } : b));
+    commit({ ...w, placeList });
+  }
+
+  function addPlace() {
+    if (!w) return;
+    const placeList = [...(w.placeList || []), { title: '', content: '', mode: 'always' as const }];
+    commit({ ...w, placeList });
+    setOpen(`p${placeList.length - 1}`);
+  }
+
+  function dropPlace(i: number) {
+    if (!w) return;
+    commit({ ...w, placeList: (w.placeList || []).filter((_, j) => j !== i) });
+    setOpen(null);
+  }
+
+  function patchEvent(i: number, p: Partial<EventEntry>) {
+    if (!w) return;
+    const events = (w.events || []).map((b, j) => (j === i ? { ...b, ...p } : b));
+    commit({ ...w, events });
+  }
+
+  function addEvent() {
+    if (!w) return;
+    const events = [
+      ...(w.events || []),
+      { title: '', content: '', kind: evTab, mode: evTab === 'always' ? ('always' as const) : ('keyword' as const) },
+    ];
+    commit({ ...w, events });
+    setOpen(`e${events.length - 1}`);
+  }
+
+  function dropEvent(i: number) {
+    if (!w) return;
+    commit({ ...w, events: (w.events || []).filter((_, j) => j !== i) });
+    setOpen(null);
   }
 
   function patchAttr(i: number, p: Partial<AttrDef>) {
@@ -83,83 +174,54 @@ export default function WorldPage() {
     commit({ ...w, characters });
   }
 
-  function addExtra() {
-    if (!w) return;
-    const extras = [...(w.extras || []), { title: '新栏目', content: '' }];
-    commit({ ...w, extras });
-    setOpen(extras.length - 1);
-  }
-
-  function dropExtra(i: number) {
-    if (!w) return;
-    commit({ ...w, extras: (w.extras || []).filter((_, j) => j !== i) });
-    if (open === i) setOpen(null);
-  }
-
-  function moveExtra(i: number, d: number) {
-    if (!w) return;
-    const extras = [...(w.extras || [])];
-    const j = i + d;
-    if (j < 0 || j >= extras.length) return;
-    [extras[i], extras[j]] = [extras[j], extras[i]];
-    commit({ ...w, extras });
-    setOpen(j);
-  }
-
-  function adoptBlocks() {
-    if (!w || !w.blocks?.length) return;
-    commit({ ...w, extras: [...(w.extras || []), ...w.blocks], blocks: [] });
-    setMsg('旧栏目已转到补充里');
+  function createWorld() {
+    const next: World = {
+      id: `w_${Date.now().toString(36)}`,
+      title: '未命名剧本',
+      updatedAt: Date.now(),
+      characters: [],
+      events: [],
+      placeList: [],
+    };
+    saveWorld(next);
+    refresh();
+    openEdit(next.id);
   }
 
   async function importWorld(file: File) {
     try {
       const text = await file.text();
       const j = JSON.parse(text) as World;
-      if (!Array.isArray(j.blocks) && !Array.isArray(j.characters)) {
-        setMsg('不是剧本文件：缺少 characters');
+      if (!Array.isArray(j.blocks) && !Array.isArray(j.characters) && !Array.isArray(j.events)) {
+        setMsg('不是剧本文件：缺少 characters / events');
         return;
       }
       const next: World = {
         ...j,
-        id: j.id || `w_${Date.now().toString(36)}`,
+        id: listWorlds().some(x => x.id === j.id) ? newId('w') : j.id || newId('w'),
         title: j.title || '未命名剧本',
-        extras: j.extras && j.extras.length ? j.extras : (j.blocks || []),
-        blocks: [],
         updatedAt: Date.now(),
       };
       saveWorld(next);
-      setW(next);
-      setOpen(null);
-      setMsg(`已载入：${next.title}`);
+      refresh();
+      setMsg(`已导入：${next.title}`);
     } catch (e) {
       setMsg('导入失败：' + (e instanceof Error ? e.message : '文件格式不对'));
     }
   }
 
-  function exportWorld() {
-    if (!w) return;
-    const blob = new Blob([JSON.stringify(w, null, 2)], { type: 'application/json' });
+  function exportWorld(target: World) {
+    const blob = new Blob([JSON.stringify(target, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `${w.title || 'world'}.json`;
+    a.download = `${target.title || 'world'}.json`;
     a.click();
     URL.revokeObjectURL(a.href);
   }
 
-  const legacy = !!(w?.blocks && w.blocks.length);
-
-  const splitKw = (v: string) => v.split(/[,，、\s]+/).map(s => s.trim()).filter(Boolean);
-  const modeText: Record<string, string> = {
-    always: '常驻',
-    keyword: '关键词',
-    place: '地点',
-    off: '关闭',
-  };
-
   const big = (
     label: string,
-    key: keyof World & ('era' | 'rules' | 'places' | 'outline' | 'opening' | 'banned' | 'style'),
+    key: 'era' | 'rules' | 'currency' | 'outline' | 'opening' | 'banned' | 'style',
     rows: number,
     placeholder: string,
     tip?: string,
@@ -177,58 +239,146 @@ export default function WorldPage() {
     </div>
   );
 
+  /* ---------- 列表页 ---------- */
+
+  if (view === 'list') {
+    return (
+      <main className="page">
+        <div className="sheet">
+          <div className="topbar">
+            <button className="back" onClick={() => router.push('/')}>返回</button>
+            <div className="title">剧本</div>
+            <div className="right">{worlds.length ? `${worlds.length} 个` : ''}</div>
+          </div>
+
+          <div className="body">
+            {!worlds.length && (
+              <div className="muted">还没有剧本。新建一个，或导入以前导出的文件。</div>
+            )}
+
+            {worlds.map(x => (
+              <div
+                key={x.id}
+                style={{
+                  padding: '14px 0',
+                  borderBottom: '1px solid var(--line)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 15, letterSpacing: '.06em' }}>{x.title || '未命名剧本'}</span>
+                  {x.id === activeId && (
+                    <span className="block-mode">使用中</span>
+                  )}
+                </div>
+                <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+                  {[x.tagline, `${x.characters?.length || 0} 人`].filter(Boolean).join(' · ')}
+                </div>
+                <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                  <button className="mini" onClick={() => openEdit(x.id)}>编辑</button>
+                  <button
+                    className="mini"
+                    disabled={x.id === activeId}
+                    onClick={() => {
+                      setActiveWorld(x.id);
+                      refresh();
+                      setMsg(`已切换到：${x.title}`);
+                    }}
+                  >
+                    {x.id === activeId ? '正在使用' : '使用'}
+                  </button>
+                  <button className="mini" onClick={() => exportWorld(x)}>导出</button>
+                  <button
+                    className="mini danger"
+                    onClick={() => {
+                      if (!confirm(`删除「${x.title}」？存档不会跟着删，但会找不到这个剧本。`)) return;
+                      deleteWorld(x.id);
+                      refresh();
+                    }}
+                  >
+                    删除
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            <div style={{ display: 'flex', gap: 10, marginTop: 18, flexWrap: 'wrap' }}>
+              <button className="btn" onClick={createWorld}>新建</button>
+              <button className="btn ghost" onClick={() => fileInput.current?.click()}>导入</button>
+            </div>
+
+            <input
+              ref={fileInput}
+              type="file"
+              accept="application/json,.json"
+              hidden
+              onChange={e => {
+                const f = e.target.files?.[0];
+                if (f) importWorld(f);
+                e.target.value = '';
+              }}
+            />
+
+            {msg && <div className="tip" style={{ marginTop: 12 }}>{msg}</div>}
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  /* ---------- 编辑页 ---------- */
+
+  if (!w) {
+    return (
+      <main className="page">
+        <div className="sheet">
+          <div className="topbar">
+            <button className="back" onClick={backToList}>返回</button>
+            <div className="title">剧本</div>
+            <div className="right" />
+          </div>
+          <div className="body">
+            <div className="muted">这个剧本不见了，回列表看看。</div>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  const events = w.events || [];
+  const filtered = events
+    .map((e, i) => ({ e, i }))
+    .filter(({ e }) => (e.kind || 'event') === evTab)
+    .filter(({ e }) => {
+      const s = q.trim();
+      if (!s) return true;
+      return (
+        (e.title || '').includes(s) ||
+        (e.desc || '').includes(s) ||
+        (e.content || '').includes(s) ||
+        (e.keywords || []).some(k => k.includes(s))
+      );
+    });
+
   return (
     <main className="page">
       <div className="sheet">
         <div className="topbar">
-          <button className="back" onClick={() => router.push('/')}>返回</button>
-          <div className="title">剧本</div>
+          <button className="back" onClick={backToList}>返回</button>
+          <div className="title">{w.title || '剧本'}</div>
           <div className="right">{msg}</div>
         </div>
 
         <div className="body">
-          {!w ? (
-            <>
-              <div className="muted">还没有导入剧本，也可以直接从这里开始写。</div>
-              <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
-                <button
-                  className="btn"
-                  onClick={() => {
-                    const next: World = {
-                      id: `w_${Date.now().toString(36)}`,
-                      title: '未命名剧本',
-                      updatedAt: Date.now(),
-                      characters: [],
-                      extras: [],
-                    };
-                    saveWorld(next);
-                    setW(next);
-                  }}
-                >
-                  新建
-                </button>
-                <button className="btn ghost" onClick={() => fileInput.current?.click()}>导入</button>
-              </div>
-            </>
-          ) : (
-            <>
-              {legacy && (
-                <div className="notice">
-                  <div>这是一份旧档案，{w.blocks?.length} 个栏目还不在新结构里。</div>
-                  <button className="mini" style={{ marginTop: 8 }} onClick={adoptBlocks}>转进补充</button>
-                </div>
-              )}
+          <div className="tabs">
+            <button className={`tab ${tab === 'base' ? 'on' : ''}`} onClick={() => setTab('base')}>基础</button>
+            <button className={`tab ${tab === 'world' ? 'on' : ''}`} onClick={() => setTab('world')}>世界观</button>
+            <button className={`tab ${tab === 'main' ? 'on' : ''}`} onClick={() => setTab('main')}>主线</button>
+            <button className={`tab ${tab === 'event' ? 'on' : ''}`} onClick={() => setTab('event')}>事件</button>
+            <button className={`tab ${tab === 'play' ? 'on' : ''}`} onClick={() => setTab('play')}>玩法</button>
+          </div>
 
-              <div className="tabs">
-                <button className={`tab ${tab === 'base' ? 'on' : ''}`} onClick={() => setTab('base')}>基础</button>
-                <button className={`tab ${tab === 'world' ? 'on' : ''}`} onClick={() => setTab('world')}>世界观</button>
-                <button className={`tab ${tab === 'main' ? 'on' : ''}`} onClick={() => setTab('main')}>主线</button>
-                <button className={`tab ${tab === 'play' ? 'on' : ''}`} onClick={() => setTab('play')}>玩法</button>
-                <button className={`tab ${tab === 'file' ? 'on' : ''}`} onClick={() => setTab('file')}>文件</button>
-              </div>
-
-              {tab === 'base' && (
-                <>
+          {tab === 'base' && (
+            <>
               <div className="section-title">基本信息</div>
               <div className="field">
                 <label>剧本名</label>
@@ -255,46 +405,201 @@ export default function WorldPage() {
 
               <Link href="/characters" className="menu-row" style={{ marginTop: 6 }}>
                 <span className="k">人物</span>
-                <span className="v">{w.characters.length} 人</span>
+                <span className="v">
+                  {(w.characters || []).filter(c => c.role !== 'npc').length} 主角 ·{' '}
+                  {(w.characters || []).filter(c => c.role === 'npc').length} NPC
+                </span>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4">
                   <path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </Link>
-                </>
-              )}
+            </>
+          )}
 
-              {tab === 'world' && (
-                <>
+          {tab === 'world' && (
+            <>
               <div className="section-title">世界观</div>
               {big('时代与科技', 'era', 4, '什么年代，科技到哪一步，什么有、什么没有')}
               {big('核心规则', 'rules', 5, '这个世界怎么运转：谁能做什么，什么绝对不成立')}
-              {big('重要场所与势力', 'places', 4, '她常去的地方、公司、旧街、酒馆，以及各自归谁')}
+              {big('货币系统', 'currency', 4, '这里的钱叫什么、怎么换算，比如 1 星币约等于 10 元')}
 
-                </>
-              )}
+              <div className="section-title">场所与势力</div>
+              {(w.placeList || []).map((p, i) => (
+                <div className="block-card" key={i}>
+                  <button className="block-head" onClick={() => setOpen(open === `p${i}` ? null : `p${i}`)}>
+                    <span className="t">{p.title || '未命名地点'}</span>
+                    <span className="block-mode">{modeText[p.mode || 'always']}</span>
+                    <span className="len">{(p.content || '').length}</span>
+                  </button>
+                  {open === `p${i}` && (
+                    <div className="block-body">
+                      <input
+                        className="block-title"
+                        value={p.title}
+                        onChange={e => patchPlace(i, { title: e.target.value })}
+                        placeholder="地点名称，如 西区"
+                      />
+                      <div className="field">
+                        <label>注入内容</label>
+                        <textarea
+                          className="block-text"
+                          rows={6}
+                          value={p.content}
+                          onChange={e => patchPlace(i, { content: e.target.value })}
+                          placeholder="这个地方长什么样、归谁、有什么规矩"
+                        />
+                      </div>
+                      <div className="field">
+                        <label>注入方式</label>
+                        <select
+                          value={p.mode || 'always'}
+                          onChange={e => patchPlace(i, { mode: e.target.value as WorldBlock['mode'] })}
+                        >
+                          <option value="always">全局 · 每回合都带</option>
+                          <option value="keyword">关键词 · 说到才带</option>
+                          <option value="off">关闭 · 暂不使用</option>
+                        </select>
+                      </div>
+                      {p.mode === 'keyword' && (
+                        <div className="field">
+                          <label>命中词</label>
+                          <input
+                            value={(p.keywords || []).join('、')}
+                            onChange={e => patchPlace(i, { keywords: splitKw(e.target.value) })}
+                            placeholder="多个用顿号隔开，如 西区、西城、码头那边"
+                          />
+                        </div>
+                      )}
+                      <div className="block-actions">
+                        <button className="mini danger" onClick={() => dropPlace(i)}>删除</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+              <div style={{ marginTop: 12 }}>
+                <button className="btn ghost" onClick={addPlace}>＋ 添加地点</button>
+              </div>
 
-              {tab === 'main' && (
-                <>
-              <div className="section-title">主线</div>
-              {big('大纲', 'outline', 8, '第一章 …\n第二章 …', '一章一行。模型按这个推进，也靠它判断该收尾了。')}
-              {big('开场 / 序章', 'opening', 6, '开局那一段，从哪一刻写起')}
-
-                </>
-              )}
-
-              {tab === 'world' && (
-                <>
               <div className="section-title">规则与禁忌</div>
               {big('不可以出现', 'banned', 4, '比如：换脸、另一个男主被提起、公司里突然多出有名有姓的员工')}
 
               <div className="section-title">文风</div>
               {big('样本', 'style', 6, '贴一段你想要的感觉，模型会照着这个语感写', '比列十条规则都管用。')}
+            </>
+          )}
 
-                </>
-              )}
+          {tab === 'main' && (
+            <>
+              <div className="section-title">主线</div>
+              {big('大纲', 'outline', 8, '第一章 …\n第二章 …', '一章一行。模型按这个推进，也靠它判断该收尾了。')}
+              {big('开场 / 序章', 'opening', 6, '开局那一段，从哪一刻写起')}
+            </>
+          )}
 
-              {tab === 'play' && (
-                <>
+          {tab === 'event' && (
+            <>
+              <div className="tabs" style={{ marginBottom: 12 }}>
+                {EV_KINDS.map(k => (
+                  <button
+                    key={k.k}
+                    className={`tab ${evTab === k.k ? 'on' : ''}`}
+                    onClick={() => setEvTab(k.k)}
+                  >
+                    {k.label}
+                  </button>
+                ))}
+              </div>
+
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  value={q}
+                  onChange={e => setQ(e.target.value)}
+                  placeholder="搜索名称 / 关键词 / 内容"
+                />
+                <button className="mini" onClick={addEvent}>＋</button>
+              </div>
+
+              <div className="tip" style={{ margin: '10px 0' }}>
+                {evTab === 'always' ? '常驻：每回合都会交给模型。' : '关键词命中时自动注入。'}
+              </div>
+
+              {filtered.map(({ e, i }) => (
+                <div className="block-card" key={i}>
+                  <button className="block-head" onClick={() => setOpen(open === `e${i}` ? null : `e${i}`)}>
+                    <span className="t">{e.title || '未命名'}</span>
+                    <span className="block-mode">{modeText[e.mode || 'always']}</span>
+                    <span className="len">{e.date || (e.content || '').length}</span>
+                  </button>
+                  {open === `e${i}` && (
+                    <div className="block-body">
+                      <input
+                        className="block-title"
+                        value={e.title}
+                        onChange={ev => patchEvent(i, { title: ev.target.value })}
+                        placeholder="名称"
+                      />
+                      {evTab === 'festival' && (
+                        <div className="field">
+                          <label>日期</label>
+                          <input
+                            value={e.date || ''}
+                            onChange={ev => patchEvent(i, { date: ev.target.value })}
+                            placeholder="如 12月24日"
+                          />
+                        </div>
+                      )}
+                      <div className="field">
+                        <label>简介</label>
+                        <input
+                          value={e.desc || ''}
+                          onChange={ev => patchEvent(i, { desc: ev.target.value })}
+                          placeholder="一句话说清这是什么"
+                        />
+                      </div>
+                      <div className="field">
+                        <label>关键词</label>
+                        <input
+                          value={(e.keywords || []).join('、')}
+                          onChange={ev => patchEvent(i, { keywords: splitKw(ev.target.value) })}
+                          placeholder="多个用顿号隔开"
+                        />
+                      </div>
+                      <div className="field">
+                        <label>完整内容</label>
+                        <textarea
+                          className="block-text"
+                          rows={7}
+                          value={e.content}
+                          onChange={ev => patchEvent(i, { content: ev.target.value })}
+                          placeholder="命中之后要交给模型的完整内容"
+                        />
+                      </div>
+                      <div className="field">
+                        <label>注入方式</label>
+                        <select
+                          value={e.mode || 'always'}
+                          onChange={ev => patchEvent(i, { mode: ev.target.value as WorldBlock['mode'] })}
+                        >
+                          <option value="always">全局 · 每回合都带</option>
+                          <option value="keyword">关键词 · 说到才带</option>
+                          <option value="off">关闭 · 暂不使用</option>
+                        </select>
+                      </div>
+                      <div className="block-actions">
+                        <button className="mini danger" onClick={() => dropEvent(i)}>删除</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {!filtered.length && <div className="muted" style={{ fontSize: 12 }}>这一类还没有条目。</div>}
+            </>
+          )}
+
+          {tab === 'play' && (
+            <>
               <div className="section-title">数值</div>
               <div className="muted" style={{ fontSize: 12, lineHeight: 1.9 }}>
                 只定义名字、初值和上限，当前值存在存档里。模型每回合只能申报增减，不能直接改写。
@@ -335,14 +640,14 @@ export default function WorldPage() {
               </div>
 
               <div className="attr-sub" style={{ marginTop: 22 }}>角色的</div>
-              {w.characters.filter(c => c.identity).length > 0 && (
+              {w.characters.filter(c => c.role !== 'npc').length > 0 && (
                 <select
                   className="attr-select"
                   value={attrChar}
                   onChange={e => setAttrChar(e.target.value)}
                 >
                   {w.characters
-                    .filter(c => c.identity)
+                    .filter(c => c.role !== 'npc')
                     .map(c => (
                       <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
@@ -379,136 +684,10 @@ export default function WorldPage() {
               <div style={{ marginTop: 10 }}>
                 <button className="mini" onClick={addCharAttr} disabled={!attrChar}>＋ 给他加一条</button>
               </div>
-
-                </>
-              )}
-
-              {tab === 'main' && (
-                <>
-              <div className="section-title">补充</div>
-              <div className="muted" style={{ fontSize: 12, lineHeight: 1.9 }}>
-                放不进上面任何一栏的散设定。按顺序接在最后交给模型。
-              </div>
-
-              {(w.extras || []).map((b, i) => (
-                <div className="block-card" key={i}>
-                  <button className="block-head" onClick={() => setOpen(open === i ? null : i)}>
-                    <span className="n">{String(i + 1).padStart(2, '0')}</span>
-                    <span className="t">{b.title || '未命名'}</span>
-                    <span className="block-mode">{modeText[b.mode || 'always']}</span>
-                    <span className="len">{b.content.length}</span>
-                  </button>
-                  {open === i && (
-                    <div className="block-body">
-                      <input
-                        className="block-title"
-                        value={b.title}
-                        onChange={e => patchExtra(i, { title: e.target.value })}
-                        placeholder="栏目名"
-                      />
-                      <textarea
-                        className="block-text"
-                        value={b.content}
-                        onChange={e => patchExtra(i, { content: e.target.value })}
-                        rows={8}
-                        placeholder="这一栏的内容"
-                      />
-                      <div className="field" style={{ marginTop: 10 }}>
-                        <label>触发方式</label>
-                        <select
-                          value={b.mode || 'always'}
-                          onChange={e => patchExtra(i, { mode: e.target.value as WorldBlock['mode'] })}
-                        >
-                          <option value="always">常驻 · 每回合都交给模型</option>
-                          <option value="keyword">关键词 · 说到才注入</option>
-                          <option value="place">地点 · 人到了才注入</option>
-                          <option value="off">关闭 · 暂不使用</option>
-                        </select>
-                      </div>
-
-                      {b.mode !== 'off' && b.mode !== 'always' && (
-                        <>
-                          <div className="field">
-                            <label>关键词</label>
-                            <input
-                              value={(b.keywords || []).join('、')}
-                              onChange={e => patchExtra(i, { keywords: splitKw(e.target.value) })}
-                              placeholder="多个用顿号或逗号隔开，如 西区、西城、码头那边"
-                            />
-                          </div>
-                          {b.mode === 'place' && (
-                            <div className="field">
-                              <label>地点</label>
-                              <input
-                                value={b.place || ''}
-                                onChange={e => patchExtra(i, { place: e.target.value })}
-                                placeholder="如 西区，场景地点里包含这两个字就注入"
-                              />
-                            </div>
-                          )}
-                          <div className="field">
-                            <label>结束关键词（可选）</label>
-                            <input
-                              value={(b.endKeywords || []).join('、')}
-                              onChange={e => patchExtra(i, { endKeywords: splitKw(e.target.value) })}
-                              placeholder="正文出现这些词后，本条不再注入"
-                            />
-                          </div>
-                        </>
-                      )}
-
-                      <div className="block-actions">
-                        <button className="mini" onClick={() => moveExtra(i, -1)}>上移</button>
-                        <button className="mini" onClick={() => moveExtra(i, 1)}>下移</button>
-                        <button className="mini danger" onClick={() => dropExtra(i)}>删除</button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-
-              <div style={{ marginTop: 14 }}>
-                <button className="btn ghost" onClick={addExtra}>新增栏目</button>
-              </div>
-
-                </>
-              )}
-
-              {tab === 'file' && (
-                <>
-              <div className="section-title">文件</div>
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                <button className="btn" onClick={() => fileInput.current?.click()}>导入</button>
-                <button className="btn ghost" onClick={exportWorld}>导出</button>
-                <button
-                  className="btn ghost"
-                  onClick={() => {
-                    saveWorld(null);
-                    setW(null);
-                    setMsg('已移除剧本');
-                  }}
-                >
-                  移除
-                </button>
-              </div>
-                </>
-              )}
             </>
           )}
 
-          <input
-            ref={fileInput}
-            type="file"
-            accept="application/json,.json"
-            hidden
-            onChange={e => {
-              const f = e.target.files?.[0];
-              if (f) importWorld(f);
-              e.target.value = '';
-            }}
-          />
-
-          {msg && <div className="err" style={{ color: 'var(--ink-2)' }}>{msg}</div>}
+          {msg && <div className="tip" style={{ marginTop: 12 }}>{msg}</div>}
         </div>
       </div>
     </main>

@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { chat, parseJSON } from '@/lib/llm';
 import { activeBlocks, buildMessages } from '@/lib/prompt';
 import { applyDelta, clampAttr, emptyState, seedState, snapDelta, stageOf } from '@/lib/affinity';
-import { activeProfile, getSave, loadSettings, loadWallpaper, loadWorld, putSave } from '@/lib/store';
+import { activeProfile, getSave, latestSaveOf, loadSettings, loadWallpaper, loadWorld, putSave } from '@/lib/store';
 import type { AffinityEntry, GameState, Save, Segment, Settings, Turn, World } from '@/lib/types';
 
 type AttrSettle = { who?: string; name?: string; delta?: number; reason?: string };
@@ -145,7 +145,7 @@ function PlayInner() {
       setSettings(loadSettings());
       setWorld(loadWorld());
       setWall(loadWallpaper().url);
-      const s = await getSave(saveId);
+      const s = saveId ? await getSave(saveId) : await latestSaveOf(loadWorld()?.id || '');
       setSave(s || null);
       if (!s) setErr('找不到这份存档，回大厅重新开始。');
     })();

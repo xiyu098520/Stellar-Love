@@ -1,22 +1,59 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { loadSettings, loadWorld } from '@/lib/store';
-import type { Settings, World } from '@/lib/types';
+import { loadWallpaper, loadWorld, newId, saveWorld } from '@/lib/store';
+import type { Character, World } from '@/lib/types';
+
+const splitKw = (v: string) => v.split(/[,，、\s]+/).map(s => s.trim()).filter(Boolean);
 
 export default function CharactersPage() {
   const router = useRouter();
   const [world, setWorld] = useState<World | null>(null);
-  const [settings, setSettings] = useState<Settings | null>(null);
+  const [wall, setWall] = useState('');
+  const [role, setRole] = useState<'lead' | 'npc'>('lead');
+  const [openId, setOpenId] = useState<string | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setWorld(loadWorld());
-    setSettings(loadSettings());
+    setWall(loadWallpaper().url);
   }, []);
 
-  const wall = settings?.wallpaper;
-  const list = world?.characters || [];
+  function commit(next: World) {
+    next.updatedAt = Date.now();
+    setWorld({ ...next });
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => saveWorld({ ...next }), 350);
+  }
+
+  function patch(id: string, p: Partial<Character>) {
+    if (!world) return;
+    const characters = (world.characters || []).map(c => (c.id === id ? { ...c, ...p } : c));
+    commit({ ...world, characters });
+  }
+
+  function add() {
+    if (!world) return;
+    const c: Character = {
+      id: newId('c'),
+      name: role === 'npc' ? '新 NPC' : '新角色',
+      role,
+      ...(role === 'npc' ? { mode: 'keyword' as const, keywords: [] } : {}),
+    };
+    commit({ ...world, characters: [...(world.characters || []), c] });
+    setOpenId(c.id);
+  }
+
+  function drop(id: string) {
+    if (!world) return;
+    if (!confirm('删除这个人物？')) return;
+    commit({ ...world, characters: (world.characters || []).filter(c => c.id !== id) });
+    setOpenId(null);
+  }
+
+  const list = (world?.characters || []).filter(c => (c.role || 'lead') === role);
+  const places = world?.placeList || [];
 
   return (
     <main className="page">
@@ -26,29 +63,136 @@ export default function CharactersPage() {
       />
       <div className="sheet">
         <div className="topbar">
-          <button className="back" onClick={() => router.push('/')}>返回</button>
+          <button className="back" onClick={() => router.push('/world')}>返回</button>
           <div className="title">人物</div>
-          <div className="right">{list.length ? `${list.length} 人` : ''}</div>
+          <div className="right">{world?.characters.length ? `${world.characters.length} 人` : ''}</div>
         </div>
 
         <div className="body">
-          {!world && <div className="muted">还没有导入剧本。先去设定里导入。</div>}
+          {!world && <div className="muted">还没有剧本。先去剧本里新建或导入。</div>}
 
           {world && (
-            <div className="cards">
+            <>
+              <div className="tabs">
+                <button className={`tab ${role === 'lead' ? 'on' : ''}`} onClick={() => { setRole('lead'); setOpenId(null); }}>
+                  主角
+                </button>
+                <button className={`tab ${role === 'npc' ? 'on' : ''}`} onClick={() => { setRole('npc'); setOpenId(null); }}>
+                  NPC
+                </button>
+              </div>
+
+              <div className="tip" style={{ marginBottom: 10 }}>
+                {role === 'lead'
+                  ? '主角＝能开个人线的人，有好感度，会涨会掉。'
+                  : 'NPC＝按关键词或地区出现的人，没有好感，不抢主线。'}
+              </div>
+
               {list.map(c => (
-                <div className="card" key={c.id}>
-                  {c.avatar ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img className="pic" src={c.avatar} alt={c.name} />
-                  ) : (
-                    <div className="ph">{c.name.slice(0, 1)}</div>
+                <div className="block-card" key={c.id}>
+                  <button className="block-head" onClick={() => setOpenId(openId === c.id ? null : c.id)}>
+                    {c.avatar ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={c.avatar} alt="" style={{ width: 26, height: 26, borderRadius: '50%', objectFit: 'cover' }} />
+                    ) : (
+                      <span className="n">{c.name.slice(0, 1) || '·'}</span>
+                    )}
+                    <span className="t">{c.name || '未命名'}</span>
+                    <span className="len">{c.identity || '—'}</span>
+                  </button>
+
+                  {openId === c.id && (
+                    <div className="block-body">
+                      <div className="field">
+                        <label>名字</label>
+                        <input value={c.name} onChange={e => patch(c.id, { name: e.target.value })} />
+                      </div>
+                      <div className="field">
+                        <label>年龄</label>
+                        <input
+                          value={c.age || ''}
+                          onChange={e => patch(c.id, { age: e.target.value })}
+                          placeholder="如 27"
+                        />
+                      </div>
+                      <div className="field">
+                        <label>身份</label>
+                        <input
+                          value={c.identity || ''}
+                          onChange={e => patch(c.id, { identity: e.target.value })}
+                          placeholder={role === 'lead' ? '如 旧街零件铺老板' : '如 画廊主人'}
+                        />
+                      </div>
+                      <div className="field">
+                        <label>说话方式</label>
+                        <input
+                          value={c.speech || ''}
+                          onChange={e => patch(c.id, { speech: e.target.value })}
+                          placeholder="他说话的语感、口头禅"
+                        />
+                      </div>
+                      <div className="field">
+                        <label>个人资料</label>
+                        <textarea
+                          className="block-text"
+                          rows={5}
+                          value={c.note || ''}
+                          onChange={e => patch(c.id, { note: e.target.value })}
+                          placeholder="性格、经历、在意的事"
+                        />
+                      </div>
+
+                      {role === 'npc' && (
+                        <>
+                          <div className="field">
+                            <label>关键词</label>
+                            <input
+                              value={(c.keywords || []).join('、')}
+                              onChange={e => patch(c.id, { keywords: splitKw(e.target.value) })}
+                              placeholder="提到这些词就出现，如 林大小姐、画廊"
+                            />
+                          </div>
+                          <div className="field">
+                            <label>出现方式</label>
+                            <select
+                              value={c.mode || 'keyword'}
+                              onChange={e => patch(c.id, { mode: e.target.value as Character['mode'] })}
+                            >
+                              <option value="keyword">关键词 · 说到才出现</option>
+                              <option value="always">常驻 · 一直在场</option>
+                            </select>
+                          </div>
+                          <div className="field">
+                            <label>所属地区</label>
+                            <input
+                              value={c.region || ''}
+                              onChange={e => patch(c.id, { region: e.target.value })}
+                              placeholder="如 西区，会连带那块地方的资料"
+                              list="place-options"
+                            />
+                            <datalist id="place-options">
+                              {places.map((p, i) => (
+                                <option key={i} value={p.title} />
+                              ))}
+                            </datalist>
+                          </div>
+                        </>
+                      )}
+
+                      <div className="block-actions">
+                        <button className="mini danger" onClick={() => drop(c.id)}>删除</button>
+                      </div>
+                    </div>
                   )}
-                  <div className="name">{c.name}</div>
-                  <div className="idn">{c.identity || '—'}</div>
                 </div>
               ))}
-            </div>
+
+              {!list.length && <div className="muted" style={{ fontSize: 12 }}>还没有人物。</div>}
+
+              <div style={{ marginTop: 14 }}>
+                <button className="btn ghost" onClick={add}>＋ 新增{role === 'npc' ? ' NPC' : '主角'}</button>
+              </div>
+            </>
           )}
         </div>
       </div>

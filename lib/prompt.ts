@@ -48,7 +48,21 @@ const STAGE_HINT: Record<string, string> = {
   全心: '不再掂量，把你放在他自己前面。',
 };
 
-/** 组装给模型的设定块：固定栏目常驻，补充栏目按触发方式取舍 */
+function recentText(save: Save): { recent: string; place: string } {
+  const place = save.state?.place || '';
+  const recent = [...save.turns.slice(-3).map(flatten), place].join('\n');
+  return { recent, place };
+}
+
+/** NPC 的所属地区：提到这个人，就把那块地方一起带进来 */
+function activeNpcRegions(world: World, recent: string): string[] {
+  return world.characters
+    .filter(c => c.role === 'npc' && !!c.region)
+    .filter(c => c.mode === 'always' || (c.keywords || []).some(k => k.trim() && recent.includes(k.trim())))
+    .map(c => c.region as string);
+}
+
+/** 固定栏目（不随触发变化的部分） */
 export function worldBlocks(world: World): WorldBlock[] {
   const out: WorldBlock[] = [];
   const add = (title: string, content?: string) => {
@@ -56,7 +70,7 @@ export function worldBlocks(world: World): WorldBlock[] {
   };
   add('时代与科技', world.era);
   add('核心规则', world.rules);
-  add('场所与势力', world.places);
+  add('货币系统', world.currency);
   add('主线大纲', world.outline);
   add('禁忌', world.banned);
   add('文风', world.style);
@@ -76,17 +90,36 @@ function entryActive(b: WorldBlock, recent: string, place: string): boolean {
 
 /** 这一回合真正要注入的块（顺序即优先级） */
 export function activeBlocks(world: World, save: Save): WorldBlock[] {
-  const fixed = worldBlocks(world);
-  const st = save.state;
-  const place = st?.place || '';
-  const recent = [
-    ...save.turns.slice(-3).map(flatten),
-    place,
-  ].join('\n');
-  const extras = (world.extras || [])
-    .filter(b => b.content.trim() && entryActive(b, recent, place))
-    .map(b => ({ ...b, content: b.content.trim() }));
-  const out = [...fixed, ...extras];
+  const { recent, place } = recentText(save);
+  const npcRegions = activeNpcRegions(world, recent);
+
+  const pick = (b: WorldBlock) => {
+    if (!b.content.trim()) return false;
+    const t = b.title || '';
+    if (t && place && place.includes(t)) return true;
+    if (t && npcRegions.some(r => r && (r.includes(t) || t.includes(r)))) return true;
+    return entryActive(b, recent, place);
+  };
+
+  const out: WorldBlock[] = [];
+  const add = (title: string, content?: string) => {
+    if (content && content.trim()) out.push({ title, content: content.trim(), mode: 'always' });
+  };
+  add('时代与科技', world.era);
+  add('核心规则', world.rules);
+  add('货币系统', world.currency);
+  for (const p of world.placeList || []) {
+    if (pick(p)) out.push({ ...p, content: p.content.trim() });
+  }
+  add('主线大纲', world.outline);
+  add('禁忌', world.banned);
+  add('文风', world.style);
+  for (const e of world.events || []) {
+    if (pick(e)) out.push({ ...e, content: e.content.trim() });
+  }
+  for (const b of world.extras || []) {
+    if (pick(b)) out.push({ ...b, content: b.content.trim() });
+  }
   return out.length ? out : world.blocks || [];
 }
 
@@ -100,8 +133,10 @@ function charText(c: Character): string {
   const fields = (c.fields || []).map(f => `- ${f.k}：${f.v}`).join('\n');
   return [
     `### ${c.name}`,
+    c.age ? `年龄：${c.age}` : '',
     c.identity ? `身份：${c.identity}` : '',
     c.speech ? `说话方式：${c.speech}` : '',
+    c.note ? `资料：${c.note}` : '',
     fields,
   ]
     .filter(Boolean)
@@ -158,11 +193,17 @@ export function routeCharacterId(save: Save): string | null {
 
 export function buildSystem(world: World, save: Save): string {
   const routeId = routeCharacterId(save);
-  const leads = world.characters.filter(c => c.identity && c.id !== 'npc');
-  const cast = routeId
-    ? leads.filter(c => c.id === routeId)
-    : leads;
-  const others = world.characters.filter(c => !cast.includes(c) && c.identity);
+  const leads = world.characters.filter(c => c.role !== 'npc' && c.name.trim());
+  const cast = routeId ? leads.filter(c => c.id === routeId) : leads;
+
+  const { recent, place } = recentText(save);
+  const npcs = world.characters.filter(c => c.role === 'npc' && c.name.trim());
+  const activeNpcs = npcs.filter(
+    n =>
+      n.mode === 'always' ||
+      (n.keywords || []).some(k => k.trim() && recent.includes(k.trim())) ||
+      (!!n.region && place.includes(n.region)),
+  );
 
   return `你是一款中文乙女向恋爱游戏的叙述者。你负责写这一回合的场面：旁白、对白、她的选择。玩家是女主角，用「你」称呼她。
 
@@ -179,7 +220,7 @@ ${world.protagonist || '（未设定，按世界观推断）'}
 ${stateText(world, save) ? `\n${stateText(world, save)}\n` : ''}
 【场上可以有的人物】
 ${cast.map(charText).join('\n\n')}
-${others.length ? `\n【其他人物（只能以无名背景或传话身份出现，不许写成恋爱对象）】\n${others.map(c => `- ${c.name}：${c.identity || ''}`).join('\n')}` : ''}
+${activeNpcs.length ? `\n【本回合可以出现的配角】\n${activeNpcs.map(charText).join('\n\n')}\n（配角只在需要的时候出现，不抢主线，不写成恋爱对象。）` : ''}
 ${attrDefsText(world) ? `\n${attrDefsText(world)}` : ''}
 
 【写法】

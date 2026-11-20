@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { lastSaveId, loadWallpaper, loadWorld, newId, putSave } from '@/lib/store';
+import { latestSaveOf, loadWallpaper, loadWorld, newId, putSave } from '@/lib/store';
 import { emptyState } from '@/lib/affinity';
 import type { Save, World } from '@/lib/types';
 
@@ -78,9 +78,17 @@ export default function Lobby() {
   const [wall, setWall] = useState('');
 
   useEffect(() => {
-    setWorld(loadWorld());
-    setLastId(lastSaveId());
-    setWall(loadWallpaper().url);
+    (async () => {
+      const w = loadWorld();
+      setWorld(w);
+      setWall(loadWallpaper().url);
+      if (w) {
+        const s = await latestSaveOf(w.id);
+        setLastId(s?.id || null);
+      } else {
+        setLastId(null);
+      }
+    })();
   }, []);
 
   // 壁纸同时铺到 html 层，页面之外露出的区域也是壁纸，不是纯黑
@@ -165,7 +173,7 @@ export default function Lobby() {
         </Link>
       )}
 
-      <div className="hud-foot">{world ? world.title : '未载入剧本'} · v0.2.7</div>
+      <div className="hud-foot">{world ? world.title : '未载入剧本'} · v0.2.8</div>
       </main>
     </>
   );
