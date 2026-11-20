@@ -1,8 +1,8 @@
 'use client';
 
 import type { ChatMessage } from './llm';
-import { stageOf } from './affinity';
-import type { Character, Save, Turn, World, WorldBlock } from './types';
+import { emptyState, stageOf } from './affinity';
+import type { Character, GameState, Save, Turn, World, WorldBlock } from './types';
 
 const FORMAT = `只输出一个 JSON 对象，不要任何解释、不要代码块围栏：
 {
@@ -78,28 +78,80 @@ export function worldBlocks(world: World): WorldBlock[] {
   return out;
 }
 
-function entryActive(b: WorldBlock, recent: string, place: string): boolean {
+function entryActive(
+  b: WorldBlock,
+  ctx: { input: string; recent: string; place: string; index: number; hits: Record<string, number>; key: string },
+): boolean {
   const mode = b.mode || 'always';
   if (mode === 'off') return false;
   if (mode === 'always') return true;
-  if ((b.endKeywords || []).some(k => k.trim() && recent.includes(k.trim()))) return false;
-  if (mode === 'place') return !!b.place && place.includes(b.place);
-  const hitKeyword = (b.keywords || []).some(k => k.trim() && recent.includes(k.trim()));
-  const hitPlace = !!b.place && place.includes(b.place);
-  return hitKeyword || hitPlace;
+  if ((b.endKeywords || []).some(k => k.trim() && ctx.recent.includes(k.trim()))) return false;
+  if (mode === 'place') return !!b.place && ctx.place.includes(b.place);
+  if (mode === 'dynamic') {
+    const hit = ctx.hits[ctx.key];
+    if (hit === undefined) return false;
+    return ctx.index - hit <= (b.rounds ?? 2);
+  }
+  // 关键词：只看这一轮你说了什么
+  const hitInput = (b.keywords || []).some(k => k.trim() && ctx.input.includes(k.trim()));
+  const hitPlace = !!b.place && ctx.place.includes(b.place);
+  return hitInput || hitPlace;
+}
+
+/** 最近一条用户输入：关键词判定只看它 */
+export function lastUserText(save: Save): string {
+  for (let i = save.turns.length - 1; i >= 0; i--) {
+    const t = save.turns[i];
+    if (t.role === 'user') return flatten(t);
+  }
+  return '';
+}
+
+/** 已经走了几轮（一问一答算一轮） */
+export function turnIndex(save: Save): number {
+  return save.turns.filter(t => t.role === 'user').length;
+}
+
+export function entryKey(e: WorldBlock, i: number): string {
+  return (e.title || '').trim() || `#${i}`;
+}
+
+/** 动态条目：这一轮说到了，就记下轮次，之后按 rounds 继续注入 */
+export function touchHits(world: World, save: Save): Save {
+  const input = lastUserText(save);
+  if (!input) return save;
+  const idx = turnIndex(save);
+  const hits: Record<string, number> = { ...(save.state?.hits || {}) };
+  let changed = false;
+  const scan = (list: WorldBlock[] | undefined) =>
+    (list || []).forEach((e, i) => {
+      if ((e.mode || 'always') !== 'dynamic') return;
+      if (!(e.keywords || []).some(k => k.trim() && input.includes(k.trim()))) return;
+      hits[entryKey(e, i)] = idx;
+      changed = true;
+    });
+  scan(world.events);
+  scan(world.extras);
+  if (!changed) return save;
+  const state: GameState = { ...(save.state || emptyState()), hits };
+  return { ...save, state };
 }
 
 /** 这一回合真正要注入的块（顺序即优先级） */
 export function activeBlocks(world: World, save: Save): WorldBlock[] {
   const { recent, place } = recentText(save);
   const npcRegions = activeNpcRegions(world, recent);
+  const input = lastUserText(save);
+  const index = turnIndex(save);
+  const hits = save.state?.hits || {};
 
-  const pick = (b: WorldBlock) => {
+  const pick = (b: WorldBlock, i: number) => {
     if (!b.content.trim()) return false;
+    const key = entryKey(b, i);
     const t = b.title || '';
     if (t && place && place.includes(t)) return true;
     if (t && npcRegions.some(r => r && (r.includes(t) || t.includes(r)))) return true;
-    return entryActive(b, recent, place);
+    return entryActive(b, { input, recent, place, index, hits, key });
   };
 
   const out: WorldBlock[] = [];
@@ -109,18 +161,18 @@ export function activeBlocks(world: World, save: Save): WorldBlock[] {
   add('时代与科技', world.era);
   add('核心规则', world.rules);
   add('货币系统', world.currency);
-  for (const p of world.placeList || []) {
-    if (pick(p)) out.push({ ...p, content: p.content.trim() });
-  }
+  (world.placeList || []).forEach((p, i) => {
+    if (pick(p, i)) out.push({ ...p, content: p.content.trim() });
+  });
   add('主线大纲', world.outline);
   add('禁忌', world.banned);
   add('文风', world.style);
-  for (const e of world.events || []) {
-    if (pick(e)) out.push({ ...e, content: e.content.trim() });
-  }
-  for (const b of world.extras || []) {
-    if (pick(b)) out.push({ ...b, content: b.content.trim() });
-  }
+  (world.events || []).forEach((e, i) => {
+    if (pick(e, i)) out.push({ ...e, content: e.content.trim() });
+  });
+  (world.extras || []).forEach((b, i) => {
+    if (pick(b, i)) out.push({ ...b, content: b.content.trim() });
+  });
   return out.length ? out : world.blocks || [];
 }
 

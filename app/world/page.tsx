@@ -18,6 +18,7 @@ const splitKw = (v: string) => v.split(/[,，、\s]+/).map(s => s.trim()).filter
 const modeText: Record<string, string> = {
   always: '全局',
   keyword: '关键词',
+  dynamic: '动态',
   place: '地点',
   off: '关闭',
 };
@@ -521,7 +522,7 @@ export default function WorldPage() {
               </div>
 
               <div className="tip" style={{ margin: '10px 0' }}>
-                {evTab === 'always' ? '常驻：每回合都会交给模型。' : '关键词命中时自动注入。'}
+                {evTab === 'always' ? '常驻：每回合都会交给模型。' : '关键词：只在这一轮注入；动态：命中后连续注入几轮。'}
               </div>
 
               {filtered.map(({ e, i }) => (
@@ -582,10 +583,24 @@ export default function WorldPage() {
                           onChange={ev => patchEvent(i, { mode: ev.target.value as WorldBlock['mode'] })}
                         >
                           <option value="always">全局 · 每回合都带</option>
-                          <option value="keyword">关键词 · 说到才带</option>
+                          <option value="keyword">关键词 · 只在这一轮</option>
+                          <option value="dynamic">动态 · 命中后持续几轮</option>
                           <option value="off">关闭 · 暂不使用</option>
                         </select>
                       </div>
+                      {e.mode === 'dynamic' && (
+                        <div className="field">
+                          <label>持续轮数</label>
+                          <input
+                            type="number"
+                            min={1}
+                            max={10}
+                            value={e.rounds ?? 2}
+                            onChange={ev => patchEvent(i, { rounds: Math.max(1, Number(ev.target.value) || 1) })}
+                          />
+                          <div className="tip">提到的那一轮 + 之后 N 轮；中途再提到会重新起算。</div>
+                        </div>
+                      )}
                       <div className="block-actions">
                         <button className="mini danger" onClick={() => dropEvent(i)}>删除</button>
                       </div>

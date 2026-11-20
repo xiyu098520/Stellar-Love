@@ -4,7 +4,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { chat, parseJSON } from '@/lib/llm';
-import { activeBlocks, buildMessages } from '@/lib/prompt';
+import { activeBlocks, buildMessages, touchHits } from '@/lib/prompt';
 import { applyDelta, clampAttr, emptyState, seedState, snapDelta, stageOf } from '@/lib/affinity';
 import { activeProfile, getSave, latestSaveOf, loadSettings, loadWallpaper, loadWorld, putSave } from '@/lib/store';
 import type { AffinityEntry, GameState, Save, Segment, Settings, Turn, World } from '@/lib/types';
@@ -164,9 +164,10 @@ function PlayInner() {
       setBusy(true);
       setErr('');
       try {
+        const touched = touchHits(world, nextSave);
         const seeded: Save = {
-          ...nextSave,
-          state: seedState(world, nextSave.state || emptyState()),
+          ...touched,
+          state: seedState(world, touched.state || emptyState()),
         };
         const messages = buildMessages(world, seeded);
         const raw = await chat(activeProfile(settings, 'story'), messages, { json: true, maxTokens: 2400 });
