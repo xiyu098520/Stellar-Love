@@ -23,6 +23,9 @@ export default function ApiSettingsPage() {
   const [tab, setTab] = useState<ApiKind>('story');
   const [msg, setMsg] = useState('');
   const [presetName, setPresetName] = useState('');
+  const [models, setModels] = useState<string[]>([]);
+  const [fetching, setFetching] = useState(false);
+  const [testing, setTesting] = useState(false);
 
   useEffect(() => {
     setS(loadSettings());
@@ -75,13 +78,66 @@ export default function ApiSettingsPage() {
     setMsg('已删除');
   }
 
+  async function fetchModels() {
+    const base = cur.baseUrl.trim().replace(/\/+$/, '');
+    if (!base) {
+      setMsg('先填 API 地址');
+      return;
+    }
+    setFetching(true);
+    setMsg('读取模型…');
+    try {
+      const res = await fetch(`${base}/models`, {
+        headers: cur.apiKey ? { Authorization: `Bearer ${cur.apiKey}` } : {},
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const rows: unknown[] = Array.isArray(data?.data)
+        ? data.data
+        : Array.isArray(data?.models)
+          ? data.models
+          : [];
+      const ids = rows
+        .map((m: any) => (typeof m === 'string' ? m : m?.id || m?.name))
+        .filter((x): x is string => typeof x === 'string' && x.length > 0)
+        .sort();
+      if (!ids.length) throw new Error('没读到模型列表');
+      setModels(ids);
+      setMsg(`读到 ${ids.length} 个模型`);
+    } catch (e) {
+      setModels([]);
+      setMsg('读取失败：' + (e instanceof Error ? e.message : '没有响应'));
+    } finally {
+      setFetching(false);
+    }
+  }
+
   async function test() {
+    setTesting(true);
     setMsg('测试中…');
     try {
+      if (tab === 'tts') {
+        const base = cur.baseUrl.trim().replace(/\/+$/, '');
+        if (!base) throw new Error('先填 API 地址');
+        const res = await fetch(`${base}/voices`, {
+          headers: cur.apiKey ? { 'xi-api-key': cur.apiKey } : {},
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const n = Array.isArray(data?.voices) ? data.voices.length : 0;
+        setMsg(`通了，${n} 个音色`);
+        return;
+      }
+      if (tab === 'image') {
+        setMsg('图像接口要真生成一张才能验证');
+        return;
+      }
       await chat(cur, [{ role: 'user', content: '回一个字：好' }], { maxTokens: 8 });
       setMsg('通了');
     } catch (e) {
       setMsg('失败：' + (e instanceof Error ? e.message : '没有响应'));
+    } finally {
+      setTesting(false);
     }
   }
 
@@ -102,7 +158,7 @@ export default function ApiSettingsPage() {
               <button
                 key={t.k}
                 className={`tab${tab === t.k ? ' on' : ''}`}
-                onClick={() => { setTab(t.k); setMsg(''); }}
+                onClick={() => { setTab(t.k); setMsg(''); setModels([]); }}
               >
                 {t.t}
               </button>
@@ -167,6 +223,34 @@ export default function ApiSettingsPage() {
               onChange={e => patch({ model: e.target.value })}
               placeholder={tab === 'tts' ? 'eleven_multilingual_v2' : 'gemini-3.8-flash'}
             />
+            {tab !== 'tts' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
+                <button className="mini" onClick={fetchModels} disabled={fetching}>
+                  {fetching ? '读取中…' : '拉取模型列表'}
+                </button>
+                <span className="muted" style={{ fontSize: 11 }}>
+                  点下面的名字就会自动填进来；读取失败多半是接口没开跨域，手填也行
+                </span>
+              </div>
+            )}
+            {tab !== 'tts' && models.length > 0 && (
+              <div className="chips" style={{ marginTop: 8 }}>
+                {models.slice(0, 40).map(m => (
+                  <span
+                    key={m}
+                    className={`chip${cur.model === m ? ' on' : ''}`}
+                    onClick={() => patch({ model: m })}
+                  >
+                    {m}
+                  </span>
+                ))}
+                {models.length > 40 && (
+                  <span className="muted" style={{ fontSize: 11 }}>
+                    还有 {models.length - 40} 个，直接手填也行
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
           {isChat && (
@@ -224,11 +308,14 @@ export default function ApiSettingsPage() {
             </div>
           )}
 
-          {isChat && (
-            <div style={{ marginTop: 18 }}>
-              <button className="btn ghost" onClick={test}>测一下</button>
-            </div>
-          )}
+          <div style={{ marginTop: 18, display: 'flex', alignItems: 'center', gap: 12 }}>
+            <button className="btn ghost" onClick={test} disabled={testing}>
+              {testing ? '测试中…' : '测一下'}
+            </button>
+            <span className="muted" style={{ fontSize: 11 }}>
+              {tab === 'image' ? '图像接口要真出图才能验证' : '会真的发一次请求'}
+            </span>
+          </div>
 
           <div className="tip" style={{ marginTop: 24 }}>改哪里存哪里，不用按保存。</div>
         </div>
