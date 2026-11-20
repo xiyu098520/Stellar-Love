@@ -24,7 +24,7 @@ export function floorOf(v: number): number {
 }
 
 const UP = [0, 1, 3, 5, 8];
-const DOWN = [0, -4, -6, -8];
+const DOWN = [0, -1, -2, -4, -6, -8];
 
 /** 只认这几档，模型报别的就取最近的 */
 export function snapDelta(d: number): number {
@@ -69,6 +69,8 @@ export const DELTA_TABLE = [
   { d: 3, when: '聊到他喜欢的东西，他多讲了两句' },
   { d: 5, when: '他主动了，或说中了他真正在意的东西' },
   { d: 8, when: '碰了手、深夜留你、他说了不该说的' },
+  { d: -1, when: '他约你，你改约了' },
+  { d: -2, when: '他约你，你婉拒，他有点失落' },
   { d: -4, when: '他把在意的事提过，你没放在心上' },
   { d: -6, when: '他约了你，你没去' },
   { d: -8, when: '他看见你跟别的男人说笑（只能是没名字的人）' },
