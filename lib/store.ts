@@ -8,6 +8,9 @@ const STORE = 'saves';
 const LS_SETTINGS = 'sl.settings';
 const LS_WORLD = 'sl.world';
 const LS_LAST = 'sl.lastSave';
+/** 壁纸单独放，避免每次读设置都要解析几 MB 的图 */
+const LS_WALL = 'sl.wallpaper';
+const LS_WALL_NAME = 'sl.wallpaperName';
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 
@@ -99,6 +102,42 @@ export function blankProfile(kind: ApiKind): ApiProfile {
   return { ...base, size: '1024x1536' };
 }
 
+/** 旧版把壁纸塞在设置里，捞出来单独存 */
+function migrateWallpaper(p: Settings & { wallpaper?: string; wallpaperName?: string }) {
+  if (!p.wallpaper) return;
+  try {
+    localStorage.setItem(LS_WALL, p.wallpaper);
+    localStorage.setItem(LS_WALL_NAME, p.wallpaperName || '');
+  } catch {}
+  delete p.wallpaper;
+  delete p.wallpaperName;
+  try {
+    localStorage.setItem(LS_SETTINGS, JSON.stringify(p));
+  } catch {}
+}
+
+export function loadWallpaper(): { url: string; name: string } {
+  if (typeof window === 'undefined') return { url: '', name: '' };
+  return {
+    url: localStorage.getItem(LS_WALL) || '',
+    name: localStorage.getItem(LS_WALL_NAME) || '',
+  };
+}
+
+export function saveWallpaper(url: string, name = ''): void {
+  try {
+    if (url) {
+      localStorage.setItem(LS_WALL, url);
+      localStorage.setItem(LS_WALL_NAME, name);
+    } else {
+      localStorage.removeItem(LS_WALL);
+      localStorage.removeItem(LS_WALL_NAME);
+    }
+  } catch {
+    alert('这张壁纸太大了，浏览器存不下。换一张小一点的。');
+  }
+}
+
 /** 补齐缺失的类型，保证每一类都至少有一套 */
 function normalize(s: Settings): Settings {
   const profiles = [...(s.profiles || [])];
@@ -139,14 +178,14 @@ export function loadSettings(): Settings {
           first.model = p.model || '';
           first.temperature = p.temperature ?? 0.9;
         }
+        migrateWallpaper(p);
         return normalize({
           profiles: [first],
           active: { story: first.id },
           voiceEnabled: p.voiceEnabled,
-          wallpaper: p.wallpaper,
-          wallpaperName: p.wallpaperName,
         });
       }
+      migrateWallpaper(p);
       return normalize(p);
     }
   } catch {}

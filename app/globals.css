@@ -156,8 +156,7 @@ input, textarea, select { font-family: inherit; }
   border-bottom: 1px solid rgba(201, 168, 106, .14);
   position: sticky;
   top: 0;
-  backdrop-filter: blur(10px);
-  background: rgba(13, 11, 16, .72);
+  background: rgba(13, 11, 16, .94);
   z-index: 5;
 }
 .topbar .back { color: var(--ink-2); font-size: 13px; letter-spacing: .1em; background: none; border: 0; padding: 4px 0; }
@@ -358,7 +357,7 @@ input, textarea, select { font-family: inherit; }
   flex-direction: column;
   gap: 10px;
 }
-.hud-side button {
+.hud-side > * {
   width: 54px;
   padding: 16px 0;
   writing-mode: vertical-rl;
@@ -371,7 +370,7 @@ input, textarea, select { font-family: inherit; }
   backdrop-filter: blur(8px);
   transition: .25s;
 }
-.hud-side button:hover { color: var(--gold); border-color: var(--gold-soft); }
+.hud-side > *:hover { color: var(--gold); border-color: var(--gold-soft); }
 
 .hud-left-bottom {
   position: absolute;
@@ -471,7 +470,7 @@ button.off::after { display: none; }
 @media (max-width: 380px) {
   .main-entry { width: 108px; height: 108px; }
   .main-entry .t { font-size: 17px; }
-  .hud-side button { width: 46px; font-size: 11px; }
+  .hud-side > * { width: 46px; font-size: 11px; }
 }
 
 /* ===== 大厅修正：锁定滚动、壁纸满屏、加金饰 ===== */
@@ -574,7 +573,7 @@ html.lobby body { height: 100%; overflow: hidden; }
 
 /* 右侧竖排：换成描边胶囊 */
 .hud-side { right: calc(18px + env(safe-area-inset-right)); gap: 12px; }
-.hud-side button {
+.hud-side > * {
   width: 44px;
   padding: 18px 0;
   border-radius: 22px;
@@ -650,7 +649,7 @@ html.lobby body { height: 100%; overflow: hidden; }
 @media (max-width: 380px) {
   .main-entry { width: 118px; height: 118px; }
   .hud-corner.top-right { width: 54px; height: 54px; }
-  .hud-side button { width: 38px; padding: 15px 0; font-size: 10px; }
+  .hud-side > * { width: 38px; padding: 15px 0; font-size: 10px; }
 }
 
 /* ===== 线性图标版 ===== */
@@ -664,7 +663,7 @@ html.lobby body { height: 100%; overflow: hidden; }
 }
 .hud-corner.top-right svg { color: var(--gold); opacity: .9; }
 
-.hud-side button {
+.hud-side > * {
   writing-mode: horizontal-tb;
   text-orientation: mixed;
   width: 52px;
@@ -675,7 +674,7 @@ html.lobby body { height: 100%; overflow: hidden; }
   gap: 7px;
   border-radius: 26px;
 }
-.hud-side button em {
+.hud-side > * em {
   font-style: normal;
   font-size: 10px;
   letter-spacing: .12em;
@@ -683,7 +682,7 @@ html.lobby body { height: 100%; overflow: hidden; }
   text-orientation: upright;
   line-height: 1;
 }
-.hud-side button svg { color: var(--gold); opacity: .82; }
+.hud-side > * svg { color: var(--gold); opacity: .82; }
 
 .hud-left-bottom button::before { display: none; }
 .hud-left-bottom button svg { color: var(--gold); opacity: .6; }
@@ -694,8 +693,8 @@ html.lobby body { height: 100%; overflow: hidden; }
 .main-entry .t { font-size: 19px; }
 
 @media (max-width: 380px) {
-  .hud-side button { width: 44px; padding: 12px 0 10px; }
-  .hud-side button svg { width: 16px; height: 16px; }
+  .hud-side > * { width: 44px; padding: 12px 0 10px; }
+  .hud-side > * svg { width: 16px; height: 16px; }
 }
 
 /* ===== 主入口改为标题式（参考深空排版） ===== */
@@ -762,7 +761,7 @@ html.lobby body { height: 100%; overflow: hidden; }
 
 /* 右侧条目：右对齐、英文小字在上 */
 .hud-side { top: 46%; align-items: flex-end; gap: 24px; }
-.hud-side button {
+.hud-side > * {
   width: auto;
   padding: 0;
   border: none;
@@ -776,18 +775,18 @@ html.lobby body { height: 100%; overflow: hidden; }
   gap: 4px;
   color: var(--ink);
 }
-.hud-side button .en {
+.hud-side > * .en {
   font-size: 8px;
   letter-spacing: .3em;
   color: var(--gold);
   opacity: .72;
 }
-.hud-side button .cn {
+.hud-side > * .cn {
   font-size: 15px;
   letter-spacing: .26em;
   text-shadow: 0 2px 12px rgba(0, 0, 0, .75);
 }
-.hud-side button:hover { color: var(--gold); }
+.hud-side > *:hover { color: var(--gold); }
 
 /* html 层也铺壁纸：底部工具栏/安全区外不再是纯黑 */
 html {
@@ -801,8 +800,8 @@ body { background: transparent; }
 
 /* 文字在任何壁纸上都读得清 */
 .hud-title,
-.hud-side button .cn,
-.hud-side button .en,
+.hud-side > * .cn,
+.hud-side > * .en,
 .entry-resume,
 .hud-foot {
   text-shadow: 0 1px 3px rgba(0, 0, 0, .95), 0 4px 18px rgba(0, 0, 0, .75);
@@ -951,4 +950,63 @@ body { background: transparent; }
   border: 1px solid var(--line);
   border-radius: 2px;
   background: rgba(201, 168, 106, .06);
+}
+
+/* ---- 结算日志 ---- */
+.ledger-card {
+  padding: 14px;
+  margin-bottom: 10px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: rgba(255, 255, 255, .02);
+}
+.ledger-card-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+  letter-spacing: .1em;
+  margin-bottom: 10px;
+}
+.ledger-bar {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 6px 0;
+  font-size: 13px;
+  border-top: 1px solid rgba(201, 168, 106, .08);
+}
+.ledger-bar .muted { font-size: 10px; }
+.ledger-bar .val { margin-left: auto; color: var(--gold); font-size: 15px; }
+
+.log-item {
+  padding: 14px 0;
+  border-bottom: 1px solid rgba(201, 168, 106, .1);
+  cursor: pointer;
+}
+.log-head { display: flex; align-items: baseline; gap: 10px; font-size: 12px; }
+.log-head .delta { font-size: 15px; min-width: 32px; }
+.log-head .delta.up { color: var(--gold); }
+.log-head .delta.down { color: #c98b8b; }
+.log-head .who { letter-spacing: .1em; }
+.log-head .muted { font-size: 10px; }
+.log-why { margin-top: 7px; font-size: 13px; line-height: 1.8; color: var(--ink-2); }
+.log-meta { margin-top: 5px; font-size: 10px; letter-spacing: .06em; color: var(--ink-3); }
+.log-debug {
+  margin-top: 10px;
+  padding: 11px 12px;
+  border: 1px solid rgba(201, 168, 106, .12);
+  background: rgba(0, 0, 0, .25);
+  font-size: 11px;
+  line-height: 1.7;
+}
+.log-debug .k { font-size: 10px; letter-spacing: .14em; color: var(--gold); margin: 6px 0 4px; }
+.log-debug .k:first-child { margin-top: 0; }
+.log-debug pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 10px;
+  color: var(--ink-2);
 }

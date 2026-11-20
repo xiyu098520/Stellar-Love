@@ -1,18 +1,67 @@
 'use client';
 
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { chat, parseJSON } from '@/lib/llm';
-import { buildMessages } from '@/lib/prompt';
-import { activeProfile, getSave, loadSettings, loadWorld, putSave } from '@/lib/store';
-import type { Save, Segment, Settings, Turn, World } from '@/lib/types';
+import { buildMessages, worldBlocks } from '@/lib/prompt';
+import { applyDelta, emptyState, snapDelta, stageOf } from '@/lib/affinity';
+import { activeProfile, getSave, loadSettings, loadWallpaper, loadWorld, putSave } from '@/lib/store';
+import type { AffinityEntry, GameState, Save, Segment, Settings, Turn, World } from '@/lib/types';
+
+type Settle = { who?: string; delta?: number; reason?: string; minutes?: number };
 
 type ModelOut = {
   segments?: Segment[];
   choices?: string[];
   time?: string;
   place?: string;
+  settle?: Settle | null;
 };
+
+/** 把模型申报的结算落成一条日志 */
+function applySettle(
+  world: World,
+  state: GameState,
+  settle: Settle | null | undefined,
+  raw: string,
+  turnIndex: number,
+  injected: string[],
+): GameState {
+  const next: GameState = {
+    ...state,
+    affinity: { ...state.affinity },
+    log: [...state.log],
+  };
+  const who = (settle?.who || '').trim();
+  const delta = snapDelta(settle?.delta ?? 0);
+  if (!who || delta === 0) return next;
+
+  const c = world.characters.find(x => x.name === who || x.id === who);
+  const id = c?.id || `unknown:${who}`;
+  const before = next.affinity[id] ?? 0;
+  const after = applyDelta(before, delta);
+  next.affinity[id] = after;
+
+  const entry: AffinityEntry = {
+    id: `log_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+    characterId: id,
+    characterName: c?.name || who,
+    delta: after - before,
+    reason: (settle?.reason || '').trim() || '（没有写理由）',
+    before,
+    after,
+    stage: stageOf(after),
+    at: Date.now(),
+    turnIndex,
+    time: next.time,
+    place: next.place,
+    raw,
+    injected,
+  };
+  next.log.push(entry);
+  return next;
+}
 
 function PlayInner() {
   const router = useRouter();
@@ -22,6 +71,7 @@ function PlayInner() {
   const [save, setSave] = useState<Save | null>(null);
   const [world, setWorld] = useState<World | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
+  const [wall, setWall] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [draft, setDraft] = useState('');
@@ -31,6 +81,7 @@ function PlayInner() {
     (async () => {
       setSettings(loadSettings());
       setWorld(loadWorld());
+      setWall(loadWallpaper().url);
       const s = await getSave(saveId);
       setSave(s || null);
       if (!s) setErr('找不到这份存档，回大厅重新开始。');
@@ -69,7 +120,30 @@ function PlayInner() {
           time: out.time,
           place: out.place,
         };
-        const done: Save = { ...nextSave, turns: [...nextSave.turns, turn], updatedAt: Date.now() };
+
+        const base = nextSave.state || emptyState();
+        const state: GameState = {
+          ...base,
+          affinity: { ...base.affinity },
+          log: [...base.log],
+        };
+        if (out.time) state.time = out.time;
+        if (out.place) state.place = out.place;
+        const settled = applySettle(
+          world,
+          state,
+          out.settle,
+          JSON.stringify(out.settle ?? null),
+          nextSave.turns.length,
+          worldBlocks(world).map(b => b.title),
+        );
+
+        const done: Save = {
+          ...nextSave,
+          turns: [...nextSave.turns, turn],
+          state: settled,
+          updatedAt: Date.now(),
+        };
         await putSave(done);
         setSave(done);
       } catch (e) {
@@ -114,7 +188,6 @@ function PlayInner() {
     );
   }
 
-  const wall = settings?.wallpaper;
   const started = save.turns.length > 0;
 
   return (
@@ -128,6 +201,7 @@ function PlayInner() {
         <div className="topbar">
           <button className="back" onClick={() => router.push('/')}>返回</button>
           <div className="title">{save.kind === 'main' ? '主线' : '个人线'}</div>
+          <Link href="/ledger" className="back" style={{ marginLeft: 'auto', marginRight: 14 }}>结算</Link>
           <div className="right">{save.turns.filter(t => t.role === 'assistant').length} 回合</div>
         </div>
 

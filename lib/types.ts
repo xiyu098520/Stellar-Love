@@ -64,6 +64,36 @@ export type Relation = {
 
 export type SaveKind = 'main' | 'route' | 'extra';
 
+/** 一次好感结算，一条日志 */
+export type AffinityEntry = {
+  id: string;
+  characterId: string;
+  characterName: string;
+  /** 本次变化，正为涨、负为降 */
+  delta: number;
+  reason: string;
+  before: number;
+  after: number;
+  /** 结算后的阶段名 */
+  stage: string;
+  at: number;
+  turnIndex: number;
+  time?: string;
+  place?: string;
+  /** 模型原样返回的结算申报，便于核对 */
+  raw?: string;
+  /** 这一回合实际注入了哪些设定栏目 */
+  injected?: string[];
+};
+
+/** 一局游戏的可变状态：一个钟、一个地点、一份好感 */
+export type GameState = {
+  time?: string;
+  place?: string;
+  affinity: Record<string, number>;
+  log: AffinityEntry[];
+};
+
 export type Save = {
   id: string;
   worldId: string;
@@ -76,6 +106,7 @@ export type Save = {
   title: string;
   turns: Turn[];
   relations: Relation[];
+  state?: GameState;
   createdAt: number;
   updatedAt: number;
 };

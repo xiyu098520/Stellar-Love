@@ -3,19 +3,21 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { activeProfile, loadSettings, loadWorld, saveSettings } from '@/lib/store';
+import { activeProfile, loadSettings, loadWallpaper, loadWorld, saveWallpaper } from '@/lib/store';
 import type { Settings, World } from '@/lib/types';
 
 export default function SettingsPage() {
   const router = useRouter();
   const [s, setS] = useState<Settings>({ profiles: [], active: {} });
   const [world, setWorld] = useState<World | null>(null);
+  const [wall, setWall] = useState({ url: '', name: '' });
   const [msg, setMsg] = useState('');
   const wallInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setS(loadSettings());
     setWorld(loadWorld());
+    setWall(loadWallpaper());
   }, []);
 
   async function pickWallpaper(file: File) {
@@ -44,9 +46,8 @@ export default function SettingsPage() {
       setMsg('这张图读不出来');
       return;
     }
-    const next = { ...s, wallpaper: dataUrl, wallpaperName: file.name };
-    setS(next);
-    saveSettings(next);
+    saveWallpaper(dataUrl, file.name);
+    setWall({ url: dataUrl, name: file.name });
     setMsg('壁纸已更换');
   }
 
@@ -81,17 +82,24 @@ export default function SettingsPage() {
             </svg>
           </Link>
 
+          <Link href="/ledger" className="menu-row">
+            <span className="k">结算日志</span>
+            <span className="v">好感涨跌核对</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4">
+              <path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </Link>
+
           <div className="section-title">大厅壁纸</div>
-          <div className="muted">{s.wallpaperName || '默认壁纸'}</div>
+          <div className="muted">{wall.name || '默认壁纸'}</div>
           <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
             <button className="btn" onClick={() => wallInput.current?.click()}>换壁纸</button>
-            {s.wallpaper && (
+            {wall.url && (
               <button
                 className="btn ghost"
                 onClick={() => {
-                  const next = { ...s, wallpaper: '', wallpaperName: '' };
-                  setS(next);
-                  saveSettings(next);
+                  saveWallpaper('');
+                  setWall({ url: '', name: '' });
                   setMsg('已恢复默认壁纸');
                 }}
               >

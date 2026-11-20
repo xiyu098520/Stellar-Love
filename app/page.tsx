@@ -1,9 +1,11 @@
 ﻿'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { lastSaveId, loadSettings, loadWorld, newId, putSave } from '@/lib/store';
-import type { Save, Settings, World } from '@/lib/types';
+import { lastSaveId, loadWallpaper, loadWorld, newId, putSave } from '@/lib/store';
+import { emptyState } from '@/lib/affinity';
+import type { Save, World } from '@/lib/types';
 
 const ICONS: Record<string, React.ReactNode> = {
   gear: (
@@ -71,17 +73,15 @@ function Icon({ name }: { name: keyof typeof ICONS }) {
 
 export default function Lobby() {
   const router = useRouter();
-  const [settings, setSettings] = useState<Settings | null>(null);
   const [world, setWorld] = useState<World | null>(null);
   const [lastId, setLastId] = useState<string | null>(null);
+  const [wall, setWall] = useState('');
 
   useEffect(() => {
-    setSettings(loadSettings());
     setWorld(loadWorld());
     setLastId(lastSaveId());
+    setWall(loadWallpaper().url);
   }, []);
-
-  const wall = settings?.wallpaper;
 
   // 壁纸同时铺到 html 层，页面之外露出的区域也是壁纸，不是纯黑
   useEffect(() => {
@@ -95,7 +95,7 @@ export default function Lobby() {
     };
   }, [wall]);
 
-  async function startMain() {
+  const startMain = async () => {
     if (!world) {
       router.push('/settings');
       return;
@@ -109,6 +109,7 @@ export default function Lobby() {
       title: '主线',
       turns: [],
       relations: [],
+      state: emptyState(),
       createdAt: now,
       updatedAt: now,
     };
@@ -127,10 +128,10 @@ export default function Lobby() {
         <span className="cn">恋歌</span>
       </div>
 
-      <button className="hud-corner top-right" onClick={() => router.push('/settings')}>
+      <Link href="/settings" className="hud-corner top-right" prefetch>
         <Icon name="gear" />
         <em>设定</em>
-      </button>
+      </Link>
 
       <div className="hud-side">
         <button className="off">
@@ -141,10 +142,10 @@ export default function Lobby() {
           <span className="en">SIDE</span>
           <span className="cn">番外</span>
         </button>
-        <button onClick={() => router.push('/characters')}>
+        <Link href="/characters" className="hud-link" prefetch>
           <span className="en">ARCHIVE</span>
           <span className="cn">人物</span>
-        </button>
+        </Link>
       </div>
 
       <button className="entry-main" onClick={startMain}>
@@ -154,13 +155,13 @@ export default function Lobby() {
       </button>
 
       {lastId && (
-        <button className="entry-resume" onClick={() => router.push(`/play?save=${lastId}`)}>
+        <Link href={`/play?save=${lastId}`} className="entry-resume" prefetch>
           <Icon name="chevron" />
           <span>继续</span>
-        </button>
+        </Link>
       )}
 
-      <div className="hud-foot">{world ? world.title : '未载入剧本'} · v0.2.2</div>
+      <div className="hud-foot">{world ? world.title : '未载入剧本'} · v0.2.3</div>
       </main>
     </>
   );
