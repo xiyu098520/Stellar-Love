@@ -103,6 +103,10 @@ export type World = {
   currency?: string;
   /** 世界观 · 关系规则：四线互不相见、换线认知重排这类 */
   relations?: string;
+  /** 开局日期，如 2065-09-12 */
+  startDate?: string;
+  /** 开局时刻，如 08:00 */
+  startTime?: string;
   /** 主线方向：核心线索，不是章节 */
   outline?: string;
   /** 规则与禁忌 */
@@ -161,9 +165,21 @@ export type AffinityEntry = {
   attrName?: string;
 };
 
+/** 游戏里的一个钟：日期加当天第几分钟 */
+export type Clock = {
+  y: number;
+  m: number;
+  d: number;
+  /** 0 到 1439 */
+  min: number;
+};
+
 /** 一局游戏的可变状态：一个钟、一个地点、一份好感、一组数值 */
 export type GameState = {
+  /** 显示用的时间字符串，由 clock 算出来 */
   time?: string;
+  /** 真正的钟，程序负责走 */
+  clock?: Clock;
   place?: string;
   affinity: Record<string, number>;
   log: AffinityEntry[];

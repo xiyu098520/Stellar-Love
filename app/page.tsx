@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { latestSaveOf, loadWallpaper, loadWorld, newId, putSave } from '@/lib/store';
 import { emptyState } from '@/lib/affinity';
+import { clockText, initClock } from '@/lib/clock';
 import type { Save, World } from '@/lib/types';
 
 const ICONS: Record<string, React.ReactNode> = {
@@ -109,6 +110,7 @@ export default function Lobby() {
       return;
     }
     const now = Date.now();
+    const clock = initClock(world);
     const save: Save = {
       id: newId('main'),
       worldId: world.id,
@@ -117,7 +119,7 @@ export default function Lobby() {
       title: '主线',
       turns: [],
       relations: [],
-      state: emptyState(),
+      state: { ...emptyState(), clock, time: clockText(clock) },
       createdAt: now,
       updatedAt: now,
     };
@@ -173,7 +175,7 @@ export default function Lobby() {
         </Link>
       )}
 
-      <div className="hud-foot">{world ? world.title : '未载入剧本'} · v0.2.22</div>
+      <div className="hud-foot">{world ? world.title : '未载入剧本'} · v0.2.23</div>
       </main>
     </>
   );

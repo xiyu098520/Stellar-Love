@@ -2,6 +2,7 @@
 
 import type { ChatMessage } from './llm';
 import { emptyState, stageOf } from './affinity';
+import { clockText } from './clock';
 import type { Character, GameState, Save, Turn, World, WorldBlock } from './types';
 
 const FORMAT = `只输出一个 JSON 对象，不要任何解释、不要代码块围栏：
@@ -11,7 +12,6 @@ const FORMAT = `只输出一个 JSON 对象，不要任何解释、不要代码�
     { "type": "dialogue", "who": "人物表里的名字", "text": "他说的话，不加引号", "tone": "softly" }
   ],
   "choices": ["下一步可以做的事", "……"],
-  "time": "10月8日 周三 · 傍晚 19:20",
   "place": "旧街 · 金记",
   "settle": { "who": "砂金", "delta": 3, "reason": "你说中了他喜欢的老唱片", "minutes": 15,
               "attrs": [{ "who": "", "name": "金钱", "delta": -38, "reason": "买了一杯手冲" }] }
@@ -38,7 +38,9 @@ delta：只能取 0、1、3、5、8、-1、-2、-4、-6、-8 之一。
   婉拒不是错事，最多掉 1 到 2；只有答应了又没去才是 -6。
   什么都没发生就写 0。
 reason：一句话说明为什么，写具体的事，不写"气氛很好"。
-minutes：这一回合过去了多少分钟，0 到 60。
+minutes：这一回合过去了多少分钟，只填数字，不写时刻。
+  几句闲话 5 到 15；一顿饭 45 到 90；赶一趟路 20 到 90；睡一觉 360 到 540；最多 720。
+  没干别的事就填 15。不要写「傍晚」「第二天」这类字眼，钟由程序走。
 attrs：这一回合真正变动的自定义数值，写成数组；没有变动就写 []。
   who 留空 = 你的数值；填人物名 = 那个人的数值。
   name 必须用【数值】里给出的原名字，不许自己起新名字。
@@ -270,7 +272,7 @@ function stateText(world: World, save: Save): string {
       return `- ${a.name}：${v}${a.max ? ` / ${a.max}` : ''}`;
     });
   const lines = [
-    st.time ? `时间：${st.time}` : '',
+    st.clock ? `时间：${clockText(st.clock)}` : st.time ? `时间：${st.time}` : '',
     st.place ? `地点：${st.place}` : '',
     ...rows,
     ...mine,
@@ -352,6 +354,7 @@ ${attrDefsText(world) ? `\n${attrDefsText(world)}` : ''}
 每回合至少有一个小的推进：他说了一句新的话、做了一件小事、带来一个消息、场面变了一点。
 结尾不要收束，要留一个可以接着往下过下去的地方。
 时间和地点要接着上一回合，不许跳回白天、不许换城市。
+时间由系统给出，你只报这一回合过了几分钟；正文里可以写「天黑了」「快打烊了」，但不要写具体钟点。
 
 ${chapterText(world)}
 

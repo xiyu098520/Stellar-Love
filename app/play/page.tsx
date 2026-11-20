@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { chat, parseJSON } from '@/lib/llm';
 import { activeBlocks, buildMessages, touchHits } from '@/lib/prompt';
 import { applyDelta, clampAttr, emptyState, seedState, snapDelta, stageOf } from '@/lib/affinity';
+import { advance, clockShort, clockText, initClock } from '@/lib/clock';
 import { activeProfile, getSave, latestSaveOf, loadSettings, loadWallpaper, loadWorld, putSave } from '@/lib/store';
 import type { AffinityEntry, GameState, Save, Segment, Settings, Turn, World } from '@/lib/types';
 
@@ -21,7 +22,6 @@ type Settle = {
 type ModelOut = {
   segments?: Segment[];
   choices?: string[];
-  time?: string;
   place?: string;
   settle?: Settle | null;
 };
@@ -258,23 +258,29 @@ function PlayInner() {
         const segments = (out.segments || []).filter(
           s => s && typeof s.text === 'string' && s.text.trim(),
         );
+
+        const base = seeded.state || emptyState();
+        // 钟由程序走：模型只报这一段过了多少分钟
+        const spent = out.settle?.minutes;
+        const clock = advance(base.clock || initClock(world), Number(spent ?? 15));
+        const state: GameState = {
+          ...base,
+          affinity: { ...base.affinity },
+          log: [...base.log],
+          clock,
+          time: clockText(clock),
+        };
+        if (out.place) state.place = out.place;
+
         const turn: Turn = {
           role: 'assistant',
           text: segments.map(s => s.text).join('\n'),
           segments,
           choices: (out.choices || []).slice(0, 4),
-          time: out.time,
+          time: state.time,
           place: out.place,
         };
 
-        const base = seeded.state || emptyState();
-        const state: GameState = {
-          ...base,
-          affinity: { ...base.affinity },
-          log: [...base.log],
-        };
-        if (out.time) state.time = out.time;
-        if (out.place) state.place = out.place;
         const settled = applySettle(
           world,
           state,
@@ -350,7 +356,10 @@ function PlayInner() {
           <button className="back" onClick={() => router.push('/')}>返回</button>
           <div className="title">{save.kind === 'main' ? '主线' : '个人线'}</div>
           <Link href="/ledger" className="back" style={{ marginLeft: 'auto', marginRight: 14 }}>结算</Link>
-          <div className="right">{save.turns.filter(t => t.role === 'assistant').length} 回合</div>
+          <div className="right">
+            {save.state?.clock ? `${clockShort(save.state.clock)} · ` : ''}
+            {save.turns.filter(t => t.role === 'assistant').length} 回合
+          </div>
         </div>
 
         <div

@@ -31,7 +31,7 @@ const EV_KINDS: { k: EventEntry['kind']; label: string }[] = [
 
 const DEFAULT_RELATIONS = `- 主线由事件推动，不围着任何一个男主转：他们是办事时遇到的人，不是目的。
 - 一段主线同时最多让一位男主成为主要对手戏；其他人只以办事的身份短暂出现，一次不超过一场，不留私密记忆。
-- 主线里好感最高到 50，说破心意、确立关系只能发生在个人线。
+- 主线里好感最高到 30，说破心意、确立关系只能发生在个人线。
 - 四个男主永远不会同时在场，也互不相识；当前线里另一个男主的名字不出现、不被提起。
 - 换线时全员认知重排：助理认识所有人，但标签随当前线变化；公司里只有无名员工，永远不缺人。`;
 
@@ -407,6 +407,26 @@ export default function WorldPage() {
                   onChange={e => patch({ tagline: e.target.value })}
                   placeholder="一句话说清这个世界在讲什么"
                 />
+              </div>
+
+              <div className="field">
+                <label>开局日期</label>
+                <input
+                  type="date"
+                  value={w.startDate || ''}
+                  onChange={e => patch({ startDate: e.target.value })}
+                />
+                <div className="tip">开局第一天。可以是未来年份，比如 2065 年。</div>
+              </div>
+
+              <div className="field">
+                <label>开局时刻</label>
+                <input
+                  type="time"
+                  value={w.startTime || ''}
+                  onChange={e => patch({ startTime: e.target.value })}
+                />
+                <div className="tip">第一回合从几点开始。之后由模型报这一回合过了多少分钟，程序往下走，跨过午夜就进第二天。</div>
               </div>
 
               <Link href="/characters" className="menu-row" style={{ marginTop: 6 }}>
