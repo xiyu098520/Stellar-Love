@@ -11,6 +11,7 @@ export default function WorldPage() {
   const [w, setW] = useState<World | null>(null);
   const [msg, setMsg] = useState('');
   const [open, setOpen] = useState<number | null>(null);
+  const [tab, setTab] = useState<'base' | 'world' | 'main' | 'play' | 'file'>('base');
   const [attrChar, setAttrChar] = useState('');
   const fileInput = useRef<HTMLInputElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -210,8 +211,17 @@ export default function WorldPage() {
                 </div>
               )}
 
-              <div className="section-title">基本信息</div>
+              <div className="tabs">
+                <button className={`tab ${tab === 'base' ? 'on' : ''}`} onClick={() => setTab('base')}>基础</button>
+                <button className={`tab ${tab === 'world' ? 'on' : ''}`} onClick={() => setTab('world')}>世界观</button>
+                <button className={`tab ${tab === 'main' ? 'on' : ''}`} onClick={() => setTab('main')}>主线</button>
+                <button className={`tab ${tab === 'play' ? 'on' : ''}`} onClick={() => setTab('play')}>玩法</button>
+                <button className={`tab ${tab === 'file' ? 'on' : ''}`} onClick={() => setTab('file')}>文件</button>
+              </div>
 
+              {tab === 'base' && (
+                <>
+              <div className="section-title">基本信息</div>
               <div className="field">
                 <label>剧本名</label>
                 <input value={w.title} onChange={e => patch({ title: e.target.value })} />
@@ -242,22 +252,41 @@ export default function WorldPage() {
                   <path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </Link>
+                </>
+              )}
 
+              {tab === 'world' && (
+                <>
               <div className="section-title">世界观</div>
               {big('时代与科技', 'era', 4, '什么年代，科技到哪一步，什么有、什么没有')}
               {big('核心规则', 'rules', 5, '这个世界怎么运转：谁能做什么，什么绝对不成立')}
               {big('重要场所与势力', 'places', 4, '她常去的地方、公司、旧街、酒馆，以及各自归谁')}
 
+                </>
+              )}
+
+              {tab === 'main' && (
+                <>
               <div className="section-title">主线</div>
               {big('大纲', 'outline', 8, '第一章 …\n第二章 …', '一章一行。模型按这个推进，也靠它判断该收尾了。')}
               {big('开场 / 序章', 'opening', 6, '开局那一段，从哪一刻写起')}
 
+                </>
+              )}
+
+              {tab === 'world' && (
+                <>
               <div className="section-title">规则与禁忌</div>
               {big('不可以出现', 'banned', 4, '比如：换脸、另一个男主被提起、公司里突然多出有名有姓的员工')}
 
               <div className="section-title">文风</div>
               {big('样本', 'style', 6, '贴一段你想要的感觉，模型会照着这个语感写', '比列十条规则都管用。')}
 
+                </>
+              )}
+
+              {tab === 'play' && (
+                <>
               <div className="section-title">数值</div>
               <div className="muted" style={{ fontSize: 12, lineHeight: 1.9 }}>
                 只定义名字、初值和上限，当前值存在存档里。模型每回合只能申报增减，不能直接改写。
@@ -343,6 +372,11 @@ export default function WorldPage() {
                 <button className="mini" onClick={addCharAttr} disabled={!attrChar}>＋ 给他加一条</button>
               </div>
 
+                </>
+              )}
+
+              {tab === 'main' && (
+                <>
               <div className="section-title">补充</div>
               <div className="muted" style={{ fontSize: 12, lineHeight: 1.9 }}>
                 放不进上面任何一栏的散设定。按顺序接在最后交给模型。
@@ -384,6 +418,11 @@ export default function WorldPage() {
                 <button className="btn ghost" onClick={addExtra}>新增栏目</button>
               </div>
 
+                </>
+              )}
+
+              {tab === 'file' && (
+                <>
               <div className="section-title">文件</div>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                 <button className="btn" onClick={() => fileInput.current?.click()}>导入</button>
@@ -399,6 +438,8 @@ export default function WorldPage() {
                   移除
                 </button>
               </div>
+                </>
+              )}
             </>
           )}
 
