@@ -269,6 +269,14 @@ input, textarea, select { font-family: inherit; }
 .dlgbox-tools button:hover, .dlgbox-tools button.on { color: var(--gold); }
 .dlgbox-tools button:disabled { opacity: .4; cursor: default; }
 .dlgbox-line { font-size: 15px; line-height: 2; letter-spacing: .04em; }
+/* 旁白：同一个展示区，但没有名字和语音键，一段一个框 */
+.dlgbox.narr {
+  margin-top: 16px;
+  background: rgba(18, 16, 22, .62);
+  border-color: rgba(201, 168, 106, .12);
+  box-shadow: none;
+}
+.dlgbox.narr .dlgbox-line { font-size: 14px; line-height: 2.15; color: var(--ink-2); }
 .you { color: var(--ink-2); font-size: 13px; line-height: 1.9; border-right: 1px solid var(--line); padding-right: 10px; text-align: right; }
 
 /* 逐句显示：每句淡入，句子之间留一口气 */

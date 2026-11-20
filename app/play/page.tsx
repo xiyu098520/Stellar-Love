@@ -194,13 +194,13 @@ function splitNarration(text: string): string[] {
 
 type Beat = { type: 'dialogue' | 'narration'; who?: string; text: string };
 
-/** 把一回合的分段铺成逐句播放的节拍 */
+/** 把一回合的分段铺成逐句播放的节拍：台词一句一句，旁白一段一段 */
 function beatsOf(segments: Segment[] | undefined): Beat[] {
   const out: Beat[] = [];
   for (const seg of segments || []) {
     if (seg.type === 'dialogue')
       splitNarration(seg.text).forEach(text => out.push({ type: 'dialogue', who: seg.who, text }));
-    else splitNarration(seg.text).forEach(text => out.push({ type: 'narration', text }));
+    else if (seg.text.trim()) out.push({ type: 'narration', text: seg.text.trim() });
   }
   return out;
 }
@@ -409,6 +409,12 @@ function PlayInner() {
     );
   };
 
+  const renderNarr = (text: string, key: string) => (
+    <div className="dlgbox narr" key={key}>
+      <div className="dlgbox-line">{text}</div>
+    </div>
+  );
+
   const run = useCallback(
     async (nextSave: Save) => {
       if (!world || !settings) return;
@@ -570,12 +576,16 @@ function PlayInner() {
                   ? beatsOf(t.segments).map((b, k) =>
                       k < seen ? (
                         <div className={`beat ${b.type}`} key={k}>
-                          {b.type === 'dialogue' ? renderDlg(b.who, b.text, `t${i}b${k}`) : <p className="narr">{b.text}</p>}
+                          {b.type === 'dialogue'
+                            ? renderDlg(b.who, b.text, `t${i}b${k}`)
+                            : renderNarr(b.text, `t${i}b${k}`)}
                         </div>
                       ) : null,
                     )
                   : (t.segments || []).map((seg, k) =>
-                      seg.type === 'dialogue' ? renderDlg(seg.who, seg.text, `t${i}b${k}`) : <p className="narr" key={k}>{seg.text}</p>,
+                      seg.type === 'dialogue'
+                        ? renderDlg(seg.who, seg.text, `t${i}b${k}`)
+                        : renderNarr(seg.text, `t${i}b${k}`),
                     )}
               </div>
             ),
