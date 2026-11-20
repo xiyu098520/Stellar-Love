@@ -1167,6 +1167,13 @@ body { background: transparent; }
 .ledger-bar .muted { font-size: 10px; }
 .ledger-bar .val { margin-left: auto; color: var(--gold); font-size: 15px; }
 
+.sum-row { padding: 9px 0; border-top: 1px solid rgba(201, 168, 106, .08); }
+.sum-head { display: flex; align-items: center; gap: 10px; font-size: 11px; letter-spacing: .08em; }
+.sum-head .muted { font-size: 10px; }
+.sum-head .mini { margin-left: auto; }
+.sum-text { margin-top: 6px; font-size: 12px; line-height: 1.8; color: var(--ink-2); }
+.sum-text.empty { color: var(--ink-3); }
+
 .log-item {
   padding: 14px 0;
   border-bottom: 1px solid rgba(201, 168, 106, .1);

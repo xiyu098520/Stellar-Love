@@ -3,8 +3,11 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { stageOf } from '@/lib/affinity';
-import { listSaves, loadWorld } from '@/lib/store';
-import type { AffinityEntry, Save, World } from '@/lib/types';
+import { chapterLabel } from '@/lib/chapter';
+import { chat } from '@/lib/llm';
+import { buildSummaryMessages } from '@/lib/prompt';
+import { activeProfile, listSaves, loadSettings, loadWorld, putSave } from '@/lib/store';
+import type { AffinityEntry, Save, Settings, World } from '@/lib/types';
 
 type Row = AffinityEntry & { saveId: string; saveTitle: string; kind2: string };
 
@@ -12,16 +15,61 @@ export default function LedgerPage() {
   const router = useRouter();
   const [saves, setSaves] = useState<Save[]>([]);
   const [world, setWorld] = useState<World | null>(null);
+  const [settings, setSettings] = useState<Settings | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [running, setRunning] = useState('');
 
   useEffect(() => {
     setWorld(loadWorld());
+    setSettings(loadSettings());
     listSaves().then(rows => {
       setSaves(rows);
       setLoaded(true);
     });
   }, []);
+
+  /** 手动重摘一回合：跟跑剧情时用的是同一套提示词 */
+  async function regen(save: Save, turnNo: number) {
+    if (!world || !settings) return;
+    const profile = activeProfile(settings, 'assistant');
+    if (!profile.baseUrl.trim() || !profile.model.trim()) {
+      alert('先到「设定 → 接口与预设」里配好助手接口。');
+      return;
+    }
+    const assistants = save.turns.filter(t => t.role === 'assistant');
+    const turn = assistants[turnNo - 1];
+    if (!turn) return;
+    const idx = save.turns.indexOf(turn);
+    const prev = save.turns[idx - 1];
+    const herWords = prev && prev.role === 'user' ? prev.text : '';
+    const key = `${save.id}:${turnNo}`;
+    setRunning(key);
+    try {
+      const raw = await chat(profile, buildSummaryMessages(world, save, turn, herWords), {
+        maxTokens: 300,
+      });
+      const text = raw
+        .replace(/["“”]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 120);
+      if (!text) throw new Error('模型没给出摘要');
+      const next: Save = {
+        ...save,
+        summaries: [
+          ...(save.summaries || []).filter(s => s.turn !== turnNo),
+          { turn: turnNo, text, at: Date.now() },
+        ].sort((a, b) => a.turn - b.turn),
+      };
+      await putSave(next);
+      setSaves(rows => rows.map(s => (s.id === next.id ? next : s)));
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '生成失败');
+    } finally {
+      setRunning('');
+    }
+  }
 
   const rows: Row[] = saves
     .flatMap(s =>
@@ -60,6 +108,8 @@ export default function LedgerPage() {
       time?: string;
       place?: string;
     }[];
+
+  const summarySaves = saves.filter(s => s.turns.some(t => t.role === 'assistant'));
 
   return (
     <main className="page">
@@ -111,6 +161,48 @@ export default function LedgerPage() {
               ))}
             </>
           )}
+
+          <div className="section-title" style={{ marginTop: 26 }}>回合摘要</div>
+          {summarySaves.length === 0 && (
+            <div className="muted">还没有回合。跑一回合，后台就会摘一条放在这里。</div>
+          )}
+          {summarySaves.map(s => {
+            const assistants = s.turns.filter(t => t.role === 'assistant');
+            const sums = new Map((s.summaries || []).map(x => [x.turn, x.text]));
+            return (
+              <div key={s.id} className="ledger-card">
+                <div className="ledger-card-top">
+                  <span>{s.title}</span>
+                  <span className="muted">
+                    {s.kind === 'main' ? '主线' : s.kind === 'route' ? '个人线' : '番外'} · {assistants.length} 回合
+                  </span>
+                </div>
+                {assistants.map((t, i) => {
+                  const no = i + 1;
+                  const text = sums.get(no);
+                  const key = `${s.id}:${no}`;
+                  return (
+                    <div key={no} className="sum-row">
+                      <div className="sum-head">
+                        <span>{s.kind === 'main' ? chapterLabel(no) : `第 ${no} 回合`}</span>
+                        <span className="muted">{t.time || ''}</span>
+                        <button
+                          className="mini"
+                          disabled={running === key}
+                          onClick={() => regen(s, no)}
+                        >
+                          {running === key ? '生成中' : text ? '重新生成' : '生成'}
+                        </button>
+                      </div>
+                      <div className={text ? 'sum-text' : 'sum-text empty'}>
+                        {text || '还没生成'}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
 
           <div className="section-title" style={{ marginTop: 26 }}>涨跌记录</div>
 
