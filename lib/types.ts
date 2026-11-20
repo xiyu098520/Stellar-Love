@@ -73,6 +73,8 @@ export type EventEntry = WorldBlock & {
   kind?: 'festival' | 'always' | 'event';
   /** 节日日期，如 12月24日 */
   date?: string;
+  /** 节日提前几天开始注入，默认 2 天 */
+  ahead?: number;
   /** 一句话简介 */
   desc?: string;
 };

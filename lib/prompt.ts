@@ -4,7 +4,7 @@ import type { ChatMessage } from './llm';
 import { emptyState, stageOf } from './affinity';
 import { chapterLabel } from './chapter';
 import { clockText } from './clock';
-import type { Character, GameState, Save, Turn, World, WorldBlock } from './types';
+import type { Character, Clock, GameState, Save, Turn, World, WorldBlock } from './types';
 
 const FORMAT = `只输出一个 JSON 对象，不要任何解释、不要代码块围栏：
 {
@@ -209,6 +209,20 @@ export function touchHits(world: World, save: Save): Save {
   return { ...save, state };
 }
 
+/** 离这个节日还有几天（0 就是今天） */
+export function festivalDaysUntil(date: string | undefined, clock: Clock): number | null {
+  if (!date) return null;
+  const m = date.match(/(\d{1,2})\s*[月\-/]\s*(\d{1,2})/);
+  if (!m) return null;
+  const month = Number(m[1]);
+  const day = Number(m[2]);
+  if (!month || !day) return null;
+  const now = Date.UTC(clock.y, clock.m - 1, clock.d);
+  let target = Date.UTC(clock.y, month - 1, day);
+  if (target < now) target = Date.UTC(clock.y + 1, month - 1, day);
+  return Math.round((target - now) / 86400000);
+}
+
 /** 这一回合真正要注入的块（顺序即优先级） */
 export function activeBlocks(world: World, save: Save): WorldBlock[] {
   const { recent, place } = recentText(save);
@@ -241,6 +255,18 @@ export function activeBlocks(world: World, save: Save): WorldBlock[] {
   add('禁忌', world.banned);
   add('文风', world.style);
   (world.events || []).forEach((e, i) => {
+    if (e.kind === 'festival' && save.state?.clock) {
+      const days = festivalDaysUntil(e.date, save.state.clock);
+      const ahead = e.ahead ?? 2;
+      if (days !== null && days >= 0 && days <= ahead && e.content.trim()) {
+        out.push({
+          title: `节日 · ${e.title || '节日'}（${days === 0 ? '就是今天' : `还有 ${days} 天`}）`,
+          content: e.content.trim(),
+          mode: 'always',
+        });
+        return;
+      }
+    }
     if (pick(e, i)) out.push({ ...e, content: e.content.trim() });
   });
   (world.extras || []).forEach((b, i) => {

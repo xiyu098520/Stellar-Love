@@ -661,14 +661,27 @@ export default function WorldPage() {
                         placeholder="名称"
                       />
                       {evTab === 'festival' && (
-                        <div className="field">
-                          <label>日期</label>
-                          <input
-                            value={e.date || ''}
-                            onChange={ev => patchEvent(i, { date: ev.target.value })}
-                            placeholder="如 12月24日"
-                          />
-                        </div>
+                        <>
+                          <div className="field">
+                            <label>日期</label>
+                            <input
+                              value={e.date || ''}
+                              onChange={ev => patchEvent(i, { date: ev.target.value })}
+                              placeholder="如 12月24日"
+                            />
+                          </div>
+                          <div className="field">
+                            <label>提前几天开始注入</label>
+                            <input
+                              inputMode="numeric"
+                              value={e.ahead ?? 2}
+                              onChange={ev =>
+                                patchEvent(i, { ahead: Math.max(0, Number(ev.target.value.replace(/[^\d]/g, '')) || 0) })
+                              }
+                            />
+                            <div className="tip">提前就会把完整内容交给模型，让他能准备礼物、提前留意。</div>
+                          </div>
+                        </>
                       )}
                       <div className="field">
                         <label>简介</label>
