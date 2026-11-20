@@ -7,6 +7,7 @@ import { chat, parseJSON } from '@/lib/llm';
 import { activeBlocks, buildMessages, touchHits } from '@/lib/prompt';
 import { applyDelta, clampAttr, emptyState, seedState, snapDelta, stageOf } from '@/lib/affinity';
 import { advance, clockShort, clockText, initClock } from '@/lib/clock';
+import { chapterLabel, chapterTurns, numberedTurns } from '@/lib/chapter';
 import {
   activeProfile,
   addVoiceClip,
@@ -32,6 +33,7 @@ import type {
   VoiceClip,
   World,
 } from '@/lib/types';
+import type { NumberedTurn } from '@/lib/chapter';
 
 type AttrSettle = { who?: string; name?: string; delta?: number; reason?: string };
 type Settle = {
@@ -217,6 +219,9 @@ function PlayInner() {
   const router = useRouter();
   const params = useSearchParams();
   const saveId = params.get('save') || '';
+  const chapterParam = params.get('chapter') || '';
+  const readMode = params.get('read') === '1';
+  const chapter = chapterParam ? Math.max(1, Number(chapterParam) || 1) : 0;
 
   const [save, setSave] = useState<Save | null>(null);
   const [world, setWorld] = useState<World | null>(null);
@@ -255,18 +260,28 @@ function PlayInner() {
   }, []);
 
   useEffect(() => {
+    if (readMode) {
+      window.scrollTo({ top: 0 });
+      return;
+    }
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }, [save?.turns.length, busy, seen]);
+  }, [save?.turns.length, busy, seen, readMode]);
 
   const lastAssistant = [...(save?.turns || [])].reverse().find(t => t.role === 'assistant');
   const choices = lastAssistant?.choices || [];
 
+  /** 只读回放只看这一章；平时看全部 */
+  const entries: NumberedTurn[] = save
+    ? chapter
+      ? chapterTurns(save.turns, chapter)
+      : numberedTurns(save.turns)
+    : [];
+
   const lastIdx = (() => {
-    const turns = save?.turns || [];
-    for (let i = turns.length - 1; i >= 0; i--) if (turns[i].role === 'assistant') return i;
+    for (let i = entries.length - 1; i >= 0; i--) if (entries[i].turn.role === 'assistant') return i;
     return -1;
   })();
-  const lastBeats = lastIdx >= 0 ? beatsOf(save!.turns[lastIdx].segments) : [];
+  const lastBeats = lastIdx >= 0 ? beatsOf(entries[lastIdx].turn.segments) : [];
   const reading = lastIdx >= 0 && seen < lastBeats.length;
 
   const voiceProfile = settings ? activeProfile(settings, 'tts') : null;
@@ -561,7 +576,7 @@ function PlayInner() {
     );
   }
 
-  const started = save.turns.length > 0;
+  const started = entries.length > 0;
 
   return (
     <main className="page">
@@ -572,12 +587,17 @@ function PlayInner() {
 
       <div className="sheet">
         <div className="topbar">
-          <button className="back" onClick={() => router.push('/')}>返回</button>
-          <div className="title">{save.kind === 'main' ? '主线' : '个人线'}</div>
+          <button className="back" onClick={() => router.push(readMode ? '/story' : '/')}>返回</button>
+          <div className="title">
+            {save.kind === 'main' ? (chapter ? `第${chapter}章` : '主线') : '个人线'}
+          </div>
           <Link href="/ledger" className="back" style={{ marginLeft: 'auto', marginRight: 14 }}>结算</Link>
           <div className="right">
-            {save.state?.clock ? `${clockShort(save.state.clock)} · ` : ''}
-            {save.turns.filter(t => t.role === 'assistant').length} 回合
+            {readMode
+              ? '只读回放'
+              : `${save.state?.clock ? `${clockShort(save.state.clock)} · ` : ''}${
+                  entries.filter(e => e.turn.role === 'assistant').length
+                } 回合`}
           </div>
         </div>
 
@@ -587,7 +607,7 @@ function PlayInner() {
             if (reading) setSeen(s => s + 1);
           }}
         >
-          {!started && (
+          {!started && !readMode && (
             <div className="center" style={{ padding: '18vh 0' }}>
               <div className="muted" style={{ marginBottom: 20, letterSpacing: '.2em' }}>
                 {world?.title || '剧本'}
@@ -599,15 +619,22 @@ function PlayInner() {
             </div>
           )}
 
-          {save.turns.map((t, i) =>
+          {!started && readMode && (
+            <div className="center" style={{ padding: '18vh 0' }}>
+              <div className="muted">这一章还没有内容。</div>
+            </div>
+          )}
+
+          {entries.map(({ turn: t, no }, i) =>
             t.role === 'user' ? (
               <div className="turn" key={i}>
                 <div className="you">{t.text}</div>
               </div>
             ) : (
               <div className="turn" key={i}>
-                {t.time && (
+                {(t.time || no) && (
                   <div className="meta">
+                    {no ? `${chapterLabel(no)} · ` : ''}
                     {t.time}
                     {t.place ? ` · ${t.place}` : ''}
                   </div>
@@ -638,7 +665,7 @@ function PlayInner() {
         </div>
       </div>
 
-      {started && !reading && (
+      {started && !reading && !readMode && (
         <div className="dock">
           {choices.length > 0 && (
             <div className="choices">

@@ -2,11 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { latestSaveOf, loadWallpaper, loadWorld, newId, putSave } from '@/lib/store';
-import { emptyState } from '@/lib/affinity';
-import { clockText, initClock } from '@/lib/clock';
-import type { Save, World } from '@/lib/types';
+import { latestSaveOf, loadWallpaper, loadWorld } from '@/lib/store';
+import type { World } from '@/lib/types';
 
 const ICONS: Record<string, React.ReactNode> = {
   gear: (
@@ -73,7 +70,6 @@ function Icon({ name }: { name: keyof typeof ICONS }) {
 }
 
 export default function Lobby() {
-  const router = useRouter();
   const [world, setWorld] = useState<World | null>(null);
   const [lastId, setLastId] = useState<string | null>(null);
   const [wall, setWall] = useState('');
@@ -103,29 +99,6 @@ export default function Lobby() {
       el.classList.remove('lobby');
     };
   }, [wall]);
-
-  const startMain = async () => {
-    if (!world) {
-      router.push('/settings');
-      return;
-    }
-    const now = Date.now();
-    const clock = initClock(world);
-    const save: Save = {
-      id: newId('main'),
-      worldId: world.id,
-      worldTitle: world.title,
-      kind: 'main',
-      title: '主线',
-      turns: [],
-      relations: [],
-      state: { ...emptyState(), clock, time: clockText(clock) },
-      createdAt: now,
-      updatedAt: now,
-    };
-    await putSave(save);
-    router.push(`/play?save=${save.id}`);
-  }
 
   return (
     <>
@@ -162,11 +135,11 @@ export default function Lobby() {
         </Link>
       </div>
 
-      <button className="entry-main" onClick={startMain}>
+      <Link href="/story" className="entry-main" prefetch>
         <span className="en">MAIN · STORY</span>
         <span className="title">恋歌</span>
-        <span className="sub">{world ? '第一章 · 相遇之前' : '先导入剧本'}</span>
-      </button>
+        <span className="sub">{world ? '主线 · 章节回放' : '先导入剧本'}</span>
+      </Link>
 
       {lastId && (
         <Link href={`/play?save=${lastId}`} className="entry-resume" prefetch>
@@ -175,7 +148,7 @@ export default function Lobby() {
         </Link>
       )}
 
-      <div className="hud-foot">{world ? world.title : '未载入剧本'} · v0.2.26</div>
+      <div className="hud-foot">{world ? world.title : '未载入剧本'} · v0.2.27</div>
       </main>
     </>
   );
