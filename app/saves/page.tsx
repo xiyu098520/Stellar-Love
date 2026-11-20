@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation';
 import { emptyState } from '@/lib/affinity';
 import { assistantCount } from '@/lib/chapter';
 import { clockText, initClock } from '@/lib/clock';
-import { delSave, listSaves, loadWorld, newId, putSave } from '@/lib/store';
-import type { Save, World } from '@/lib/types';
+import { addVoiceClip, delSave, listSaves, listVoiceClips, loadWorld, newId, putSave } from '@/lib/store';
+import type { Save, Wallet, World } from '@/lib/types';
+import { loadWallet, saveWallet } from '@/lib/wallet';
 
 function kindText(s: Save) {
   if (s.kind === 'main') return '主线';
@@ -27,6 +28,8 @@ export default function SavesPage() {
   const [loaded, setLoaded] = useState(false);
   const [editing, setEditing] = useState('');
   const [draft, setDraft] = useState('');
+  const [withVoice, setWithVoice] = useState(false);
+  const [msg, setMsg] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -78,6 +81,69 @@ export default function SavesPage() {
     setSaves(rows => rows.filter(x => x.id !== s.id));
   }
 
+  /** 导出：存档、摘要、账本、背包、手机、待办都在存档和钱包里，语音单独可选 */
+  async function exportAll() {
+    if (!world) return;
+    setMsg('打包中……');
+    const all = await listSaves();
+    const payload: Record<string, unknown> = {
+      app: 'stellar-love',
+      version: 1,
+      exportedAt: Date.now(),
+      worldId: world.id,
+      saves: all,
+      wallet: loadWallet(world.id, world),
+    };
+    if (withVoice) payload.clips = await listVoiceClips();
+    const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `stellar-love-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setMsg(withVoice ? '导出完成，含语音，文件会比较大。' : '导出完成。');
+  }
+
+  async function importAll(file: File) {
+    try {
+      setMsg('导入中……');
+      const j = JSON.parse(await file.text()) as {
+        saves?: Save[];
+        wallet?: Wallet;
+        clips?: { id: string }[];
+        worldId?: string;
+      };
+      if (!Array.isArray(j.saves)) {
+        setMsg('不是备份文件：缺少存档。');
+        return;
+      }
+      const existing = new Set((await listSaves()).map(s => s.id));
+      let added = 0;
+      for (const s of j.saves) {
+        if (!s?.id || existing.has(s.id)) continue;
+        await putSave(s);
+        added += 1;
+      }
+      const wid = j.worldId;
+      if (j.wallet && wid && wid === world?.id) {
+        const local = loadWallet(wid, world);
+        const hasLocal = local.ledger.length || local.gifts.length || local.money;
+        if (!hasLocal) saveWallet(wid, j.wallet);
+      }
+      let clips = 0;
+      for (const c of j.clips || []) {
+        if (!c?.id) continue;
+        await addVoiceClip(c as never);
+        clips += 1;
+      }
+      setSaves(await listSaves());
+      setMsg(`导入完成：新增 ${added} 份存档${clips ? `、${clips} 条语音` : ''}。同名的跳过。`);
+    } catch (e) {
+      setMsg('导入失败：' + (e instanceof Error ? e.message : '文件读不出来'));
+    }
+  }
+
   return (
     <main className="page">
       <div className="sheet">
@@ -98,6 +164,32 @@ export default function SavesPage() {
               <span className="muted" style={{ fontSize: 11, marginLeft: 10 }}>
                 当前剧本：{world.title}
               </span>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 10, flexWrap: 'wrap' }}>
+                <button className="mini" onClick={exportAll}>导出全部</button>
+                <label className="muted" style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <input
+                    type="checkbox"
+                    checked={withVoice}
+                    onChange={e => setWithVoice(e.target.checked)}
+                    style={{ width: 'auto' }}
+                  />
+                  含语音收藏（文件较大）
+                </label>
+                <label className="mini" style={{ cursor: 'pointer' }}>
+                  导入备份
+                  <input
+                    type="file"
+                    accept="application/json,.json"
+                    style={{ display: 'none' }}
+                    onChange={e => {
+                      const f = e.target.files?.[0];
+                      if (f) importAll(f);
+                      e.currentTarget.value = '';
+                    }}
+                  />
+                </label>
+              </div>
+              {msg && <div className="tip" style={{ marginTop: 8 }}>{msg}</div>}
             </div>
           )}
 
