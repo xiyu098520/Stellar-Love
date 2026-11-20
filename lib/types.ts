@@ -24,7 +24,18 @@ export type Character = {
   attrs?: AttrDef[];
 };
 
-export type WorldBlock = { title: string; content: string };
+export type WorldBlock = {
+  title: string;
+  content: string;
+  /** 怎么交给模型：常驻 / 关键词 / 地点 / 关闭；不填按常驻 */
+  mode?: 'always' | 'keyword' | 'place' | 'off';
+  /** 说到这些词就注入 */
+  keywords?: string[];
+  /** 人到了这里就注入 */
+  place?: string;
+  /** 正文里出现这些词，本次就不再注入 */
+  endKeywords?: string[];
+};
 
 /** 一条自定义数值：初始值、上限（不填＝无上限） */
 export type AttrDef = {

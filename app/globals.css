@@ -912,6 +912,14 @@ body { background: transparent; }
 .block-head .n { font-size: 10px; letter-spacing: .1em; color: var(--gold); opacity: .75; }
 .block-head .t { letter-spacing: .08em; }
 .block-head .len { margin-left: auto; font-size: 10px; color: var(--ink-3); }
+.block-mode {
+  font-size: 9px;
+  letter-spacing: .1em;
+  color: var(--gold);
+  border: 1px solid var(--gold-soft);
+  padding: 1px 6px;
+  border-radius: 2px;
+}
 .block-body { padding: 0 12px 14px; }
 .block-title,
 .block-text {

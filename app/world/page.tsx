@@ -149,6 +149,14 @@ export default function WorldPage() {
 
   const legacy = !!(w?.blocks && w.blocks.length);
 
+  const splitKw = (v: string) => v.split(/[,，、\s]+/).map(s => s.trim()).filter(Boolean);
+  const modeText: Record<string, string> = {
+    always: '常驻',
+    keyword: '关键词',
+    place: '地点',
+    off: '关闭',
+  };
+
   const big = (
     label: string,
     key: keyof World & ('era' | 'rules' | 'places' | 'outline' | 'opening' | 'banned' | 'style'),
@@ -387,6 +395,7 @@ export default function WorldPage() {
                   <button className="block-head" onClick={() => setOpen(open === i ? null : i)}>
                     <span className="n">{String(i + 1).padStart(2, '0')}</span>
                     <span className="t">{b.title || '未命名'}</span>
+                    <span className="block-mode">{modeText[b.mode || 'always']}</span>
                     <span className="len">{b.content.length}</span>
                   </button>
                   {open === i && (
@@ -404,6 +413,50 @@ export default function WorldPage() {
                         rows={8}
                         placeholder="这一栏的内容"
                       />
+                      <div className="field" style={{ marginTop: 10 }}>
+                        <label>触发方式</label>
+                        <select
+                          value={b.mode || 'always'}
+                          onChange={e => patchExtra(i, { mode: e.target.value as WorldBlock['mode'] })}
+                        >
+                          <option value="always">常驻 · 每回合都交给模型</option>
+                          <option value="keyword">关键词 · 说到才注入</option>
+                          <option value="place">地点 · 人到了才注入</option>
+                          <option value="off">关闭 · 暂不使用</option>
+                        </select>
+                      </div>
+
+                      {b.mode !== 'off' && b.mode !== 'always' && (
+                        <>
+                          <div className="field">
+                            <label>关键词</label>
+                            <input
+                              value={(b.keywords || []).join('、')}
+                              onChange={e => patchExtra(i, { keywords: splitKw(e.target.value) })}
+                              placeholder="多个用顿号或逗号隔开，如 西区、西城、码头那边"
+                            />
+                          </div>
+                          {b.mode === 'place' && (
+                            <div className="field">
+                              <label>地点</label>
+                              <input
+                                value={b.place || ''}
+                                onChange={e => patchExtra(i, { place: e.target.value })}
+                                placeholder="如 西区，场景地点里包含这两个字就注入"
+                              />
+                            </div>
+                          )}
+                          <div className="field">
+                            <label>结束关键词（可选）</label>
+                            <input
+                              value={(b.endKeywords || []).join('、')}
+                              onChange={e => patchExtra(i, { endKeywords: splitKw(e.target.value) })}
+                              placeholder="正文出现这些词后，本条不再注入"
+                            />
+                          </div>
+                        </>
+                      )}
+
                       <div className="block-actions">
                         <button className="mini" onClick={() => moveExtra(i, -1)}>上移</button>
                         <button className="mini" onClick={() => moveExtra(i, 1)}>下移</button>

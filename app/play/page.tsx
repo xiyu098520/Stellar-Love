@@ -4,7 +4,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { chat, parseJSON } from '@/lib/llm';
-import { buildMessages, worldBlocks } from '@/lib/prompt';
+import { activeBlocks, buildMessages } from '@/lib/prompt';
 import { applyDelta, clampAttr, emptyState, seedState, snapDelta, stageOf } from '@/lib/affinity';
 import { activeProfile, getSave, loadSettings, loadWallpaper, loadWorld, putSave } from '@/lib/store';
 import type { AffinityEntry, GameState, Save, Segment, Settings, Turn, World } from '@/lib/types';
@@ -202,7 +202,7 @@ function PlayInner() {
           out.settle,
           JSON.stringify(out.settle ?? null),
           nextSave.turns.length,
-          worldBlocks(world).map(b => b.title),
+          activeBlocks(world, seeded).map(b => b.title),
         );
 
         const done: Save = {

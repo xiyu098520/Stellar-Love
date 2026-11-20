@@ -48,11 +48,11 @@ const STAGE_HINT: Record<string, string> = {
   全心: '不再掂量，把你放在他自己前面。',
 };
 
-/** 组装给模型的设定块：固定栏目在前，补充在后；新档案为空时退回旧档案原块 */
+/** 组装给模型的设定块：固定栏目常驻，补充栏目按触发方式取舍 */
 export function worldBlocks(world: World): WorldBlock[] {
   const out: WorldBlock[] = [];
   const add = (title: string, content?: string) => {
-    if (content && content.trim()) out.push({ title, content: content.trim() });
+    if (content && content.trim()) out.push({ title, content: content.trim(), mode: 'always' });
   };
   add('时代与科技', world.era);
   add('核心规则', world.rules);
@@ -60,12 +60,38 @@ export function worldBlocks(world: World): WorldBlock[] {
   add('主线大纲', world.outline);
   add('禁忌', world.banned);
   add('文风', world.style);
-  for (const b of world.extras || []) add(b.title, b.content);
-  return out.length ? out : (world.blocks || []);
+  return out;
 }
 
-function blocksText(world: World): string {
-  return worldBlocks(world)
+function entryActive(b: WorldBlock, recent: string, place: string): boolean {
+  const mode = b.mode || 'always';
+  if (mode === 'off') return false;
+  if (mode === 'always') return true;
+  if ((b.endKeywords || []).some(k => k.trim() && recent.includes(k.trim()))) return false;
+  if (mode === 'place') return !!b.place && place.includes(b.place);
+  const hitKeyword = (b.keywords || []).some(k => k.trim() && recent.includes(k.trim()));
+  const hitPlace = !!b.place && place.includes(b.place);
+  return hitKeyword || hitPlace;
+}
+
+/** 这一回合真正要注入的块（顺序即优先级） */
+export function activeBlocks(world: World, save: Save): WorldBlock[] {
+  const fixed = worldBlocks(world);
+  const st = save.state;
+  const place = st?.place || '';
+  const recent = [
+    ...save.turns.slice(-3).map(flatten),
+    place,
+  ].join('\n');
+  const extras = (world.extras || [])
+    .filter(b => b.content.trim() && entryActive(b, recent, place))
+    .map(b => ({ ...b, content: b.content.trim() }));
+  const out = [...fixed, ...extras];
+  return out.length ? out : world.blocks || [];
+}
+
+function blocksText(world: World, save: Save): string {
+  return activeBlocks(world, save)
     .map(b => `## ${b.title}\n${b.content}`)
     .join('\n\n');
 }
@@ -146,7 +172,7 @@ ${save.kind === 'route'
   : '这是主线：四个男主角都可以出现，但每一场只写其中一个；其他人在场也只是没有名字的背景。'}
 
 【世界观】
-${blocksText(world)}
+${blocksText(world, save)}
 
 【主角】
 ${world.protagonist || '（未设定，按世界观推断）'}
