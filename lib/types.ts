@@ -20,9 +20,19 @@ export type Character = {
   identity?: string;
   speech?: string;
   fields?: { k: string; v: string }[];
+  /** 这个角色自己的数值，比如黑化度 */
+  attrs?: AttrDef[];
 };
 
 export type WorldBlock = { title: string; content: string };
+
+/** 一条自定义数值：初始值、上限（不填＝无上限） */
+export type AttrDef = {
+  id: string;
+  name: string;
+  init: number;
+  max?: number;
+};
 
 export type World = {
   id: string;
@@ -49,6 +59,8 @@ export type World = {
   /** 旧档案原样保留，新档案不用 */
   blocks?: WorldBlock[];
   characters: Character[];
+  /** 你的全局数值，比如金钱、经验、体力 */
+  attrs?: AttrDef[];
   protagonist?: string;
   notes?: string;
   opening?: string;
@@ -84,14 +96,22 @@ export type AffinityEntry = {
   raw?: string;
   /** 这一回合实际注入了哪些设定栏目 */
   injected?: string[];
+  /** 好感，还是自定义数值 */
+  kind?: 'affinity' | 'attr';
+  /** 自定义数值的名字 */
+  attrName?: string;
 };
 
-/** 一局游戏的可变状态：一个钟、一个地点、一份好感 */
+/** 一局游戏的可变状态：一个钟、一个地点、一份好感、一组数值 */
 export type GameState = {
   time?: string;
   place?: string;
   affinity: Record<string, number>;
   log: AffinityEntry[];
+  /** 你的全局数值：AttrDef.id -> 当前值 */
+  attrs?: Record<string, number>;
+  /** 角色的额外数值：角色 id -> AttrDef.id -> 当前值 */
+  charAttrs?: Record<string, Record<string, number>>;
 };
 
 export type Save = {

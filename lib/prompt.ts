@@ -13,7 +13,8 @@ const FORMAT = `只输出一个 JSON 对象，不要任何解释、不要代码�
   "choices": ["下一步可以做的事", "……"],
   "time": "10月8日 周三 · 傍晚 19:20",
   "place": "旧街 · 金记",
-  "settle": { "who": "砂金", "delta": 3, "reason": "你说中了他喜欢的老唱片", "minutes": 15 }
+  "settle": { "who": "砂金", "delta": 3, "reason": "你说中了他喜欢的老唱片", "minutes": 15,
+              "attrs": [{ "who": "", "name": "金钱", "delta": -38, "reason": "买了一杯手冲" }] }
 }
 tone 可选，只能是 sighs、whispers、softly、laughs、sad、happy、angry、excited、nervous、calm、tired、sarcastic 之一。
 segments 至少 3 段、正文合计 260 到 520 字。choices 给 2 到 4 条，每条不超过 18 字，写成她能做的事，不写心理活动。`;
@@ -33,6 +34,10 @@ delta：只能取 0、1、3、5、8、-4、-6、-8 之一。
   什么都没发生就写 0。
 reason：一句话说明为什么，写具体的事，不写"气氛很好"。
 minutes：这一回合过去了多少分钟，0 到 60。
+attrs：这一回合真正变动的自定义数值，写成数组；没有变动就写 []。
+  who 留空 = 你的数值；填人物名 = 那个人的数值。
+  name 必须用【数值】里给出的原名字，不许自己起新名字。
+  钱花出去、赚进来，都要报；不许直接改写余额，只报增减。
 同一件事只算一次，不要反复加。`;
 
 const STAGE_HINT: Record<string, string> = {
@@ -84,14 +89,41 @@ function stateText(world: World, save: Save): string {
     const c = world.characters.find(x => x.id === id);
     const name = c?.name || id;
     const stage = stageOf(v);
-    return `- ${name}：${v}（${stage}）${STAGE_HINT[stage] || ''}`;
+    const extra = (c?.attrs || [])
+      .map(a => `${a.name} ${st.charAttrs?.[id]?.[a.id] ?? a.init}`)
+      .join('，');
+    return `- ${name}：${v}（${stage}）${STAGE_HINT[stage] || ''}${extra ? `｜${extra}` : ''}`;
   });
+  const mine = (world.attrs || [])
+    .filter(a => a.name.trim())
+    .map(a => {
+      const v = st.attrs?.[a.id] ?? a.init;
+      return `- ${a.name}：${v}${a.max ? ` / ${a.max}` : ''}`;
+    });
   const lines = [
     st.time ? `时间：${st.time}` : '',
     st.place ? `地点：${st.place}` : '',
     ...rows,
+    ...mine,
   ].filter(Boolean);
   return lines.length ? `【当前状态】\n${lines.join('\n')}` : '';
+}
+
+function attrDefsText(world: World): string {
+  const lines: string[] = [];
+  for (const a of world.attrs || []) {
+    if (!a.name.trim()) continue;
+    lines.push(`- ${a.name}（你的）：初值 ${a.init}，${a.max ? `上限 ${a.max}` : '无上限'}`);
+  }
+  for (const c of world.characters) {
+    for (const a of c.attrs || []) {
+      if (!a.name.trim()) continue;
+      lines.push(`- ${c.name}·${a.name}：初值 ${a.init}，${a.max ? `上限 ${a.max}` : '无上限'}`);
+    }
+  }
+  return lines.length
+    ? `【可改的数值】\n名字必须照抄，只能报增减，不能直接写结果：\n${lines.join('\n')}`
+    : '';
 }
 
 export function routeCharacterId(save: Save): string | null {
@@ -122,6 +154,7 @@ ${stateText(world, save) ? `\n${stateText(world, save)}\n` : ''}
 【场上可以有的人物】
 ${cast.map(charText).join('\n\n')}
 ${others.length ? `\n【其他人物（只能以无名背景或传话身份出现，不许写成恋爱对象）】\n${others.map(c => `- ${c.name}：${c.identity || ''}`).join('\n')}` : ''}
+${attrDefsText(world) ? `\n${attrDefsText(world)}` : ''}
 
 【写法】
 句子短，不堆形容词，不用「仿佛」「似乎」「一丝」「不由得」。心理只从外面看：写动作、停顿、视线、呼吸，不写「他心疼」「他很在意」。

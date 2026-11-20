@@ -3,19 +3,23 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { loadWorld, saveWorld } from '@/lib/store';
-import type { World, WorldBlock } from '@/lib/types';
+import { loadWorld, newId, saveWorld } from '@/lib/store';
+import type { AttrDef, World, WorldBlock } from '@/lib/types';
 
 export default function WorldPage() {
   const router = useRouter();
   const [w, setW] = useState<World | null>(null);
   const [msg, setMsg] = useState('');
   const [open, setOpen] = useState<number | null>(null);
+  const [attrChar, setAttrChar] = useState('');
   const fileInput = useRef<HTMLInputElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    setW(loadWorld());
+    const ww = loadWorld();
+    setW(ww);
+    const first = ww?.characters.find(c => c.identity);
+    if (first) setAttrChar(first.id);
   }, []);
 
   function commit(next: World) {
@@ -34,6 +38,48 @@ export default function WorldPage() {
     if (!w) return;
     const extras = (w.extras || []).map((b, j) => (j === i ? { ...b, ...p } : b));
     commit({ ...w, extras });
+  }
+
+  function patchAttr(i: number, p: Partial<AttrDef>) {
+    if (!w) return;
+    const attrs = (w.attrs || []).map((a, j) => (j === i ? { ...a, ...p } : a));
+    commit({ ...w, attrs });
+  }
+
+  function addAttr() {
+    if (!w) return;
+    commit({ ...w, attrs: [...(w.attrs || []), { id: newId(), name: '', init: 0 }] });
+  }
+
+  function dropAttr(i: number) {
+    if (!w) return;
+    commit({ ...w, attrs: (w.attrs || []).filter((_, j) => j !== i) });
+  }
+
+  function patchCharAttr(i: number, p: Partial<AttrDef>) {
+    if (!w) return;
+    const characters = w.characters.map(c =>
+      c.id === attrChar
+        ? { ...c, attrs: (c.attrs || []).map((a, j) => (j === i ? { ...a, ...p } : a)) }
+        : c,
+    );
+    commit({ ...w, characters });
+  }
+
+  function addCharAttr() {
+    if (!w || !attrChar) return;
+    const characters = w.characters.map(c =>
+      c.id === attrChar ? { ...c, attrs: [...(c.attrs || []), { id: newId(), name: '', init: 0 }] } : c,
+    );
+    commit({ ...w, characters });
+  }
+
+  function dropCharAttr(i: number) {
+    if (!w) return;
+    const characters = w.characters.map(c =>
+      c.id === attrChar ? { ...c, attrs: (c.attrs || []).filter((_, j) => j !== i) } : c,
+    );
+    commit({ ...w, characters });
   }
 
   function addExtra() {
@@ -211,6 +257,91 @@ export default function WorldPage() {
 
               <div className="section-title">文风</div>
               {big('样本', 'style', 6, '贴一段你想要的感觉，模型会照着这个语感写', '比列十条规则都管用。')}
+
+              <div className="section-title">数值</div>
+              <div className="muted" style={{ fontSize: 12, lineHeight: 1.9 }}>
+                只定义名字、初值和上限，当前值存在存档里。模型每回合只能申报增减，不能直接改写。
+                好感是内置的（每人 0–100），不用在这里重复加。
+              </div>
+
+              <div className="attr-sub">你的</div>
+              {(w.attrs || []).map((a, i) => (
+                <div className="attr-row" key={a.id}>
+                  <input
+                    className="attr-name"
+                    value={a.name}
+                    onChange={e => patchAttr(i, { name: e.target.value })}
+                    placeholder="名字，如 金钱"
+                  />
+                  <input
+                    className="attr-num"
+                    type="number"
+                    value={a.init}
+                    onChange={e => patchAttr(i, { init: Number(e.target.value) || 0 })}
+                    title="初始值"
+                  />
+                  <input
+                    className="attr-num"
+                    type="number"
+                    value={a.max ?? ''}
+                    onChange={e =>
+                      patchAttr(i, { max: e.target.value === '' ? undefined : Number(e.target.value) })
+                    }
+                    placeholder="上限"
+                    title="留空＝无上限"
+                  />
+                  <button className="mini danger" onClick={() => dropAttr(i)}>×</button>
+                </div>
+              ))}
+              <div style={{ marginTop: 10 }}>
+                <button className="mini" onClick={addAttr}>＋ 添加一条</button>
+              </div>
+
+              <div className="attr-sub" style={{ marginTop: 22 }}>角色的</div>
+              {w.characters.filter(c => c.identity).length > 0 && (
+                <select
+                  className="attr-select"
+                  value={attrChar}
+                  onChange={e => setAttrChar(e.target.value)}
+                >
+                  {w.characters
+                    .filter(c => c.identity)
+                    .map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                </select>
+              )}
+              {(w.characters.find(c => c.id === attrChar)?.attrs || []).map((a, i) => (
+                <div className="attr-row" key={a.id}>
+                  <input
+                    className="attr-name"
+                    value={a.name}
+                    onChange={e => patchCharAttr(i, { name: e.target.value })}
+                    placeholder="名字，如 黑化度"
+                  />
+                  <input
+                    className="attr-num"
+                    type="number"
+                    value={a.init}
+                    onChange={e => patchCharAttr(i, { init: Number(e.target.value) || 0 })}
+                    title="初始值"
+                  />
+                  <input
+                    className="attr-num"
+                    type="number"
+                    value={a.max ?? ''}
+                    onChange={e =>
+                      patchCharAttr(i, { max: e.target.value === '' ? undefined : Number(e.target.value) })
+                    }
+                    placeholder="上限"
+                    title="留空＝无上限"
+                  />
+                  <button className="mini danger" onClick={() => dropCharAttr(i)}>×</button>
+                </div>
+              ))}
+              <div style={{ marginTop: 10 }}>
+                <button className="mini" onClick={addCharAttr} disabled={!attrChar}>＋ 给他加一条</button>
+              </div>
 
               <div className="section-title">补充</div>
               <div className="muted" style={{ fontSize: 12, lineHeight: 1.9 }}>

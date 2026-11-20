@@ -1,4 +1,4 @@
-import type { GameState } from './types';
+import type { GameState, World } from './types';
 
 /** 阶段门槛：数值到哪一档，他对你的相处方式就变一次 */
 export const STAGES = [
@@ -42,6 +42,25 @@ export function applyDelta(before: number, delta: number): number {
 
 export function emptyState(): GameState {
   return { affinity: {}, log: [] };
+}
+
+/** 剧本里新加的数值，补齐到已有存档上 */
+export function seedState(world: World, st: GameState): GameState {
+  const attrs = { ...(st.attrs || {}) };
+  for (const a of world.attrs || []) if (attrs[a.id] === undefined) attrs[a.id] = a.init;
+
+  const charAttrs = { ...(st.charAttrs || {}) };
+  for (const c of world.characters) {
+    const cur = { ...(charAttrs[c.id] || {}) };
+    for (const a of c.attrs || []) if (cur[a.id] === undefined) cur[a.id] = a.init;
+    charAttrs[c.id] = cur;
+  }
+  return { ...st, attrs, charAttrs };
+}
+
+export function clampAttr(v: number, max?: number): number {
+  const n = Math.max(0, Math.round(v));
+  return max && max > 0 ? Math.min(max, n) : n;
 }
 
 export const DELTA_TABLE = [

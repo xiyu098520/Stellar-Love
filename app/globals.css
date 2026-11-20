@@ -952,6 +952,44 @@ body { background: transparent; }
   background: rgba(201, 168, 106, .06);
 }
 
+/* ---- 自定义数值 ---- */
+.attr-sub {
+  margin-top: 16px;
+  font-size: 10px;
+  letter-spacing: .18em;
+  color: var(--gold);
+}
+.attr-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.attr-row input {
+  padding: 9px 10px;
+  background: rgba(255, 255, 255, .035);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 13px;
+  outline: none;
+  border-radius: 2px;
+  min-width: 0;
+}
+.attr-row input:focus { border-color: var(--gold-soft); }
+.attr-name { flex: 1; }
+.attr-num { width: 76px; text-align: right; }
+.attr-select {
+  width: 100%;
+  margin-top: 8px;
+  padding: 9px 10px;
+  background: rgba(255, 255, 255, .035);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 13px;
+  border-radius: 2px;
+  outline: none;
+}
+
 /* ---- 结算日志 ---- */
 .ledger-card {
   padding: 14px;

@@ -3,18 +3,20 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { stageOf } from '@/lib/affinity';
-import { listSaves } from '@/lib/store';
-import type { AffinityEntry, Save } from '@/lib/types';
+import { listSaves, loadWorld } from '@/lib/store';
+import type { AffinityEntry, Save, World } from '@/lib/types';
 
-type Row = AffinityEntry & { saveId: string; saveTitle: string; kind: string };
+type Row = AffinityEntry & { saveId: string; saveTitle: string; kind2: string };
 
 export default function LedgerPage() {
   const router = useRouter();
   const [saves, setSaves] = useState<Save[]>([]);
+  const [world, setWorld] = useState<World | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
+    setWorld(loadWorld());
     listSaves().then(rows => {
       setSaves(rows);
       setLoaded(true);
@@ -27,22 +29,37 @@ export default function LedgerPage() {
         ...e,
         saveId: s.id,
         saveTitle: s.title,
-        kind: s.kind,
+        kind2: s.kind,
       })),
     )
     .sort((a, b) => b.at - a.at);
 
+  const charName = (id: string) =>
+    world?.characters.find(c => c.id === id)?.name || rows.find(r => r.characterId === id)?.characterName || id;
+
+  const charAttrName = (cid: string, aid: string) =>
+    world?.characters.find(c => c.id === cid)?.attrs?.find(a => a.id === aid)?.name || aid;
+
+  const attrName = (aid: string) => world?.attrs?.find(a => a.id === aid)?.name || aid;
+
   const current = saves
     .map(s => {
       const st = s.state;
-      if (!st || !Object.keys(st.affinity).length) return null;
-      const items = Object.entries(st.affinity).map(([id, v]) => {
-        const name = rows.find(r => r.characterId === id)?.characterName || id;
-        return { id, name, v };
-      });
-      return { save: s, items, time: st.time, place: st.place };
+      if (!st) return null;
+      const mine = Object.entries(st.attrs || {});
+      const chars = Object.entries(st.affinity || {});
+      const extras = Object.entries(st.charAttrs || {}).filter(([, m]) => Object.keys(m).length);
+      if (!mine.length && !chars.length && !extras.length) return null;
+      return { save: s, mine, chars, extras, time: st.time, place: st.place };
     })
-    .filter(Boolean) as { save: Save; items: { id: string; name: string; v: number }[]; time?: string; place?: string }[];
+    .filter(Boolean) as {
+      save: Save;
+      mine: [string, number][];
+      chars: [string, number][];
+      extras: [string, Record<string, number>][];
+      time?: string;
+      place?: string;
+    }[];
 
   return (
     <main className="page">
@@ -61,13 +78,33 @@ export default function LedgerPage() {
                 <div key={c.save.id} className="ledger-card">
                   <div className="ledger-card-top">
                     <span>{c.save.title}</span>
-                    <span className="muted">{c.time || '—'}{c.place ? ` · ${c.place}` : ''}</span>
+                    <span className="muted">
+                      {c.time || '—'}
+                      {c.place ? ` · ${c.place}` : ''}
+                    </span>
                   </div>
-                  {c.items.map(it => (
-                    <div key={it.id} className="ledger-bar">
-                      <span>{it.name}</span>
-                      <span className="muted">{stageOf(it.v)}</span>
-                      <span className="val">{it.v}</span>
+                  {c.chars.map(([id, v]) => (
+                    <div key={id} className="ledger-bar">
+                      <span>{charName(id)}</span>
+                      <span className="muted">{stageOf(v)}</span>
+                      <span className="val">{v}</span>
+                    </div>
+                  ))}
+                  {c.extras.map(([cid, map]) => (
+                    <div key={cid} className="ledger-bar">
+                      <span>{charName(cid)}</span>
+                      <span className="muted">
+                        {Object.entries(map)
+                          .map(([aid, v]) => `${charAttrName(cid, aid)} ${v}`)
+                          .join('　')}
+                      </span>
+                    </div>
+                  ))}
+                  {c.mine.map(([aid, v]) => (
+                    <div key={aid} className="ledger-bar">
+                      <span>你</span>
+                      <span className="muted">{attrName(aid)}</span>
+                      <span className="val">{v}</span>
                     </div>
                   ))}
                 </div>
@@ -84,20 +121,23 @@ export default function LedgerPage() {
 
           {rows.map(r => {
             const expanded = open === r.id;
+            const isAttr = r.kind === 'attr';
             return (
               <div key={r.id} className="log-item" onClick={() => setOpen(expanded ? null : r.id)}>
                 <div className="log-head">
                   <span className={`delta ${r.delta > 0 ? 'up' : 'down'}`}>
                     {r.delta > 0 ? `+${r.delta}` : r.delta}
                   </span>
-                  <span className="who">{r.characterName}</span>
+                  <span className="who">{isAttr ? r.attrName : r.characterName}</span>
                   <span className="muted">{r.before} → {r.after}</span>
-                  <span className="muted">{r.stage}</span>
+                  {!isAttr && <span className="muted">{r.stage}</span>}
+                  {isAttr && <span className="muted">{r.characterName}</span>}
                   <span className="muted" style={{ marginLeft: 'auto' }}>{r.saveTitle}</span>
                 </div>
                 <div className="log-why">{r.reason}</div>
                 <div className="log-meta">
-                  {r.time || '—'}{r.place ? ` · ${r.place}` : ''}　第 {Math.floor(r.turnIndex / 2) + 1} 回合
+                  {r.time || '—'}
+                  {r.place ? ` · ${r.place}` : ''}　第 {Math.floor(r.turnIndex / 2) + 1} 回合
                 </div>
                 {expanded && (
                   <div className="log-debug">

@@ -5,11 +5,18 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { chat, parseJSON } from '@/lib/llm';
 import { buildMessages, worldBlocks } from '@/lib/prompt';
-import { applyDelta, emptyState, snapDelta, stageOf } from '@/lib/affinity';
+import { applyDelta, clampAttr, emptyState, seedState, snapDelta, stageOf } from '@/lib/affinity';
 import { activeProfile, getSave, loadSettings, loadWallpaper, loadWorld, putSave } from '@/lib/store';
 import type { AffinityEntry, GameState, Save, Segment, Settings, Turn, World } from '@/lib/types';
 
-type Settle = { who?: string; delta?: number; reason?: string; minutes?: number };
+type AttrSettle = { who?: string; name?: string; delta?: number; reason?: string };
+type Settle = {
+  who?: string;
+  delta?: number;
+  reason?: string;
+  minutes?: number;
+  attrs?: AttrSettle[];
+};
 
 type ModelOut = {
   segments?: Segment[];
@@ -32,34 +39,90 @@ function applySettle(
     ...state,
     affinity: { ...state.affinity },
     log: [...state.log],
+    attrs: { ...(state.attrs || {}) },
+    charAttrs: { ...(state.charAttrs || {}) },
   };
+
+  const push = (entry: Omit<AffinityEntry, 'id' | 'at' | 'turnIndex' | 'time' | 'place' | 'raw' | 'injected'>) => {
+    next.log.push({
+      ...entry,
+      id: `log_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+      at: Date.now(),
+      turnIndex,
+      time: next.time,
+      place: next.place,
+      raw,
+      injected,
+    });
+  };
+
   const who = (settle?.who || '').trim();
   const delta = snapDelta(settle?.delta ?? 0);
-  if (!who || delta === 0) return next;
+  if (who && delta !== 0) {
+    const c = world.characters.find(x => x.name === who || x.id === who);
+    const id = c?.id || `unknown:${who}`;
+    const before = next.affinity[id] ?? 0;
+    const after = applyDelta(before, delta);
+    next.affinity[id] = after;
+    push({
+      characterId: id,
+      characterName: c?.name || who,
+      delta: after - before,
+      reason: (settle?.reason || '').trim() || '（没有写理由）',
+      before,
+      after,
+      stage: stageOf(after),
+      kind: 'affinity',
+    });
+  }
 
-  const c = world.characters.find(x => x.name === who || x.id === who);
-  const id = c?.id || `unknown:${who}`;
-  const before = next.affinity[id] ?? 0;
-  const after = applyDelta(before, delta);
-  next.affinity[id] = after;
+  for (const a of settle?.attrs || []) {
+    const name = (a.name || '').trim();
+    const value = Number(a.delta);
+    if (!name || !Number.isFinite(value) || value === 0) continue;
+    const target = (a.who || '').trim();
+    const reason = (a.reason || '').trim() || '（没有写理由）';
 
-  const entry: AffinityEntry = {
-    id: `log_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
-    characterId: id,
-    characterName: c?.name || who,
-    delta: after - before,
-    reason: (settle?.reason || '').trim() || '（没有写理由）',
-    before,
-    after,
-    stage: stageOf(after),
-    at: Date.now(),
-    turnIndex,
-    time: next.time,
-    place: next.place,
-    raw,
-    injected,
-  };
-  next.log.push(entry);
+    if (target) {
+      const c = world.characters.find(x => x.name === target || x.id === target);
+      const def = c?.attrs?.find(d => d.name === name);
+      if (!c || !def) continue;
+      const before = next.charAttrs?.[c.id]?.[def.id] ?? def.init;
+      const after = clampAttr(before + value, def.max);
+      if (after === before) continue;
+      next.charAttrs![c.id] = { ...(next.charAttrs?.[c.id] || {}), [def.id]: after };
+      push({
+        characterId: c.id,
+        characterName: c.name,
+        delta: after - before,
+        reason,
+        before,
+        after,
+        stage: stageOf(next.affinity[c.id] ?? 0),
+        kind: 'attr',
+        attrName: def.name,
+      });
+    } else {
+      const def = (world.attrs || []).find(d => d.name === name);
+      if (!def) continue;
+      const before = next.attrs?.[def.id] ?? def.init;
+      const after = clampAttr(before + value, def.max);
+      if (after === before) continue;
+      next.attrs![def.id] = after;
+      push({
+        characterId: '',
+        characterName: '你',
+        delta: after - before,
+        reason,
+        before,
+        after,
+        stage: '',
+        kind: 'attr',
+        attrName: def.name,
+      });
+    }
+  }
+
   return next;
 }
 
@@ -101,7 +164,11 @@ function PlayInner() {
       setBusy(true);
       setErr('');
       try {
-        const messages = buildMessages(world, nextSave);
+        const seeded: Save = {
+          ...nextSave,
+          state: seedState(world, nextSave.state || emptyState()),
+        };
+        const messages = buildMessages(world, seeded);
         const raw = await chat(activeProfile(settings, 'story'), messages, { json: true, maxTokens: 2400 });
         let out: ModelOut;
         try {
@@ -121,7 +188,7 @@ function PlayInner() {
           place: out.place,
         };
 
-        const base = nextSave.state || emptyState();
+        const base = seeded.state || emptyState();
         const state: GameState = {
           ...base,
           affinity: { ...base.affinity },
