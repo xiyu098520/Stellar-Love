@@ -202,7 +202,7 @@ export function buildSystem(world: World, save: Save): string {
     n =>
       n.mode === 'always' ||
       (n.keywords || []).some(k => k.trim() && recent.includes(k.trim())) ||
-      (!!n.region && place.includes(n.region)),
+      (!!n.region && (place.includes(n.region) || recent.includes(n.region))),
   );
 
   return `你是一款中文乙女向恋爱游戏的叙述者。你负责写这一回合的场面：旁白、对白、她的选择。玩家是女主角，用「你」称呼她。
