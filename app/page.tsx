@@ -137,6 +137,10 @@ export default function Lobby() {
           <span className="en">SAVE</span>
           <span className="cn">存档</span>
         </Link>
+        <Link href="/bag" className="hud-link" prefetch>
+          <span className="en">BAG</span>
+          <span className="cn">背包</span>
+        </Link>
       </div>
 
       <Link href="/story" className="entry-main" prefetch>

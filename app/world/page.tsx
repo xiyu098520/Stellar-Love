@@ -11,7 +11,7 @@ import {
   saveWorld,
   setActiveWorld,
 } from '@/lib/store';
-import type { AttrDef, EventEntry, World, WorldBlock } from '@/lib/types';
+import type { AttrDef, EventEntry, Item, World, WorldBlock } from '@/lib/types';
 
 const splitKw = (v: string) => v.split(/[,，、\s]+/).map(s => s.trim()).filter(Boolean);
 
@@ -162,6 +162,44 @@ export default function WorldPage() {
         : c,
     );
     commit({ ...w, characters });
+  }
+
+  function patchItem(i: number, p: Partial<Item>) {
+    if (!w) return;
+    commit({ ...w, items: (w.items || []).map((it, j) => (j === i ? { ...it, ...p } : it)) });
+  }
+
+  function addItem() {
+    if (!w) return;
+    commit({
+      ...w,
+      items: [...(w.items || []), { id: newId(), name: '', price: 0, shop: '杂货店', kind: 'daily' }],
+    });
+  }
+
+  function dropItem(i: number) {
+    if (!w) return;
+    commit({ ...w, items: (w.items || []).filter((_, j) => j !== i) });
+  }
+
+  function seedItems() {
+    if (!w) return;
+    const base: Item[] = [
+      { id: newId(), name: '珍珠奶茶', price: 18, shop: '奶茶店', kind: 'daily' },
+      { id: newId(), name: '手冲咖啡', price: 32, shop: '咖啡店', kind: 'daily' },
+      { id: newId(), name: '便利店便当', price: 25, shop: '便利店', kind: 'daily' },
+      { id: newId(), name: '热牛奶', price: 12, shop: '便利店', kind: 'daily' },
+      { id: newId(), name: '领带夹', price: 680, shop: '日用品店', kind: 'gift' },
+      { id: newId(), name: '全息花束', price: 220, shop: '花店', kind: 'gift' },
+      { id: newId(), name: '机械零件套装', price: 450, shop: '零件铺', kind: 'gift' },
+      { id: newId(), name: '旧唱片', price: 160, shop: '旧货店', kind: 'gift' },
+      { id: newId(), name: '义体保养油', price: 90, shop: '日用品店', kind: 'daily' },
+      { id: newId(), name: '降噪耳机', price: 1200, shop: '电器店', kind: 'gift' },
+      { id: newId(), name: '便携数据盘', price: 300, shop: '电器店', kind: 'daily' },
+      { id: newId(), name: '手写便签本', price: 45, shop: '文具店', kind: 'gift' },
+    ];
+    const have = new Set((w.items || []).map(i => i.name));
+    commit({ ...w, items: [...(w.items || []), ...base.filter(i => !have.has(i.name))] });
   }
 
   function addCharAttr() {
@@ -780,6 +818,36 @@ export default function WorldPage() {
               ))}
               <div style={{ marginTop: 10 }}>
                 <button className="mini" onClick={addCharAttr} disabled={!attrChar}>＋ 给他加一条</button>
+              </div>
+
+              <div className="section-title" style={{ marginTop: 26 }}>物品与商店</div>
+              <div className="muted" style={{ fontSize: 12, lineHeight: 1.9 }}>
+                商店按「店铺」分组。有纪念意义的选礼物，会记进他收到的东西；奶茶、便当这类选日常，只进账本。
+              </div>
+              {(w.items || []).map((it, i) => (
+                <div
+                  key={it.id}
+                  style={{ display: 'grid', gridTemplateColumns: '1fr 72px 88px 68px 28px', gap: 6, marginTop: 8, alignItems: 'center' }}
+                >
+                  <input value={it.name} onChange={e => patchItem(i, { name: e.target.value })} placeholder="物品名" />
+                  <input
+                    inputMode="numeric"
+                    value={it.price}
+                    onChange={e => patchItem(i, { price: Number(e.target.value.replace(/[^\d]/g, '')) || 0 })}
+                    placeholder="价格"
+                  />
+                  <input value={it.shop || ''} onChange={e => patchItem(i, { shop: e.target.value })} placeholder="店铺" />
+                  <select value={it.kind || 'daily'} onChange={e => patchItem(i, { kind: e.target.value as Item['kind'] })}>
+                    <option value="gift">礼物</option>
+                    <option value="daily">日常</option>
+                    <option value="collect">收藏</option>
+                  </select>
+                  <button className="mini danger" onClick={() => dropItem(i)}>×</button>
+                </div>
+              ))}
+              <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                <button className="mini" onClick={addItem}>＋ 添加物品</button>
+                <button className="mini" onClick={seedItems}>填入日常商品</button>
               </div>
             </>
           )}
