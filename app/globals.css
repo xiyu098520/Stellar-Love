@@ -599,9 +599,14 @@ input, textarea, select { font-family: inherit; }
   left: 50%;
   bottom: calc(16px + env(safe-area-inset-bottom));
   transform: translateX(-50%);
+  padding: 5px 12px;
+  border: 1px solid rgba(255, 255, 255, .09);
+  border-radius: 999px;
+  background: rgba(10, 9, 12, .66);
+  backdrop-filter: blur(8px);
   font-size: 10px;
   letter-spacing: .2em;
-  color: var(--ink-3);
+  color: var(--ink-2);
   white-space: nowrap;
 }
 
@@ -785,7 +790,7 @@ html.lobby body { height: 100%; overflow: hidden; }
   bottom: calc(12px + env(safe-area-inset-bottom));
   font-size: 9px;
   letter-spacing: .24em;
-  opacity: .55;
+  opacity: .82;
 }
 
 @media (max-width: 380px) {
