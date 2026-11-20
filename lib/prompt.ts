@@ -197,6 +197,7 @@ export function activeBlocks(world: World, save: Save): WorldBlock[] {
   };
   add('时代与科技', world.era);
   add('核心规则', world.rules);
+  add('关系规则', world.relations);
   add('货币系统', world.currency);
   (world.placeList || []).forEach((p, i) => {
     if (pick(p, i)) out.push({ ...p, content: p.content.trim() });

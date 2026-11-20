@@ -29,6 +29,12 @@ const EV_KINDS: { k: EventEntry['kind']; label: string }[] = [
   { k: 'event', label: '事件' },
 ];
 
+const DEFAULT_RELATIONS = `- 主线由事件推动，不围着任何一个男主转：他们是办事时遇到的人，不是目的。
+- 一段主线同时最多让一位男主成为主要对手戏；其他人只以办事的身份短暂出现，一次不超过一场，不留私密记忆。
+- 主线里好感最高到 50，说破心意、确立关系只能发生在个人线。
+- 四个男主永远不会同时在场，也互不相识；当前线里另一个男主的名字不出现、不被提起。
+- 换线时全员认知重排：助理认识所有人，但标签随当前线变化；公司里只有无名员工，永远不缺人。`;
+
 type Tab = 'base' | 'world' | 'main' | 'event' | 'play';
 
 export default function WorldPage() {
@@ -221,7 +227,7 @@ export default function WorldPage() {
 
   const big = (
     label: string,
-    key: 'era' | 'rules' | 'currency' | 'outline' | 'opening' | 'banned' | 'style',
+    key: 'era' | 'rules' | 'relations' | 'currency' | 'outline' | 'opening' | 'banned' | 'style',
     rows: number,
     placeholder: string,
     tip?: string,
@@ -421,6 +427,26 @@ export default function WorldPage() {
               <div className="section-title">世界观</div>
               {big('时代与科技', 'era', 4, '什么年代，科技到哪一步，什么有、什么没有')}
               {big('核心规则', 'rules', 5, '这个世界怎么运转：谁能做什么，什么绝对不成立')}
+              <div className="field">
+                <label>关系规则</label>
+                <textarea
+                  className="block-text"
+                  rows={7}
+                  value={w.relations || ''}
+                  onChange={e => patch({ relations: e.target.value })}
+                  placeholder="几条线怎么互不干扰、换线时认知怎么变、谁能出现谁不能"
+                />
+                <div className="tip">比如：四个男主永不相遇；换线时全员认知重排；当前线里另一个人的名字不出现。</div>
+                {!w.relations && (
+                  <button
+                    className="mini"
+                    style={{ marginTop: 8 }}
+                    onClick={() => patch({ relations: DEFAULT_RELATIONS })}
+                  >
+                    填入常用规则
+                  </button>
+                )}
+              </div>
               {big('货币系统', 'currency', 4, '这里的钱叫什么、怎么换算，比如 1 星币约等于 10 元')}
 
               <div className="section-title">场所与势力</div>

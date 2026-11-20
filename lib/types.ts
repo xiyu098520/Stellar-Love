@@ -101,6 +101,8 @@ export type World = {
   placeList?: WorldBlock[];
   /** 世界观 · 货币系统 */
   currency?: string;
+  /** 世界观 · 关系规则：四线互不相见、换线认知重排这类 */
+  relations?: string;
   /** 主线方向：核心线索，不是章节 */
   outline?: string;
   /** 规则与禁忌 */
