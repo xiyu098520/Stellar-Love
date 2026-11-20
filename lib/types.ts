@@ -85,6 +85,10 @@ export type World = {
   placeList?: WorldBlock[];
   /** 世界观 · 货币系统 */
   currency?: string;
+  /** 剧情方向：ai = 交给模型安排；manual = 按大纲走 */
+  chapterMode?: 'ai' | 'manual';
+  /** 大约多少章 */
+  totalChapters?: number;
   /** 主线大纲，一章一行 */
   outline?: string;
   /** 规则与禁忌 */
@@ -153,6 +157,8 @@ export type GameState = {
   charAttrs?: Record<string, Record<string, number>>;
   /** 动态条目：条目键 -> 最近一次命中的轮次 */
   hits?: Record<string, number>;
+  /** 当前章节：第几章、这一章要办完什么 */
+  chapter?: { index: number; goal?: string };
 };
 
 export type Save = {

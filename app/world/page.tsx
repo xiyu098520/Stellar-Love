@@ -493,7 +493,36 @@ export default function WorldPage() {
           {tab === 'main' && (
             <>
               <div className="section-title">主线</div>
-              {big('大纲', 'outline', 8, '第一章 …\n第二章 …', '一章一行。模型按这个推进，也靠它判断该收尾了。')}
+              <div className="field">
+                <label>剧情方向</label>
+                <select
+                  value={w.chapterMode === 'manual' ? 'manual' : 'ai'}
+                  onChange={e => patch({ chapterMode: e.target.value as World['chapterMode'] })}
+                >
+                  <option value="ai">交给模型安排</option>
+                  <option value="manual">我自己写大纲</option>
+                </select>
+                <div className="tip">
+                  {w.chapterMode === 'manual'
+                    ? '模型按你写的大纲推进。'
+                    : '你不写大纲：模型每章只办一件事，办完申报下一章，按总章数自己收尾。'}
+                </div>
+              </div>
+              {w.chapterMode !== 'manual' && (
+                <div className="field">
+                  <label>大约多少章</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={200}
+                    value={w.totalChapters ?? 10}
+                    onChange={e => patch({ totalChapters: Math.max(1, Number(e.target.value) || 1) })}
+                  />
+                  <div className="tip">倒数的章节会自动进入收尾，不再引入新的人。</div>
+                </div>
+              )}
+              {w.chapterMode === 'manual' &&
+                big('大纲', 'outline', 8, '第一章 …\n第二章 …', '一章一行。模型按这个推进，也靠它判断该收尾了。')}
               {big('开场 / 序章', 'opening', 6, '开局那一段，从哪一刻写起')}
             </>
           )}

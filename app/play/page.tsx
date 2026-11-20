@@ -24,6 +24,7 @@ type ModelOut = {
   time?: string;
   place?: string;
   settle?: Settle | null;
+  chapter?: { done?: boolean; next?: string } | null;
 };
 
 /** 把模型申报的结算落成一条日志 */
@@ -197,6 +198,15 @@ function PlayInner() {
         };
         if (out.time) state.time = out.time;
         if (out.place) state.place = out.place;
+        if (!state.chapter) state.chapter = { index: 1 };
+        if (out.chapter?.done) {
+          state.chapter = {
+            index: (state.chapter.index || 1) + 1,
+            goal: (out.chapter.next || '').trim() || undefined,
+          };
+        } else if (!state.chapter.goal && (out.chapter?.next || '').trim()) {
+          state.chapter.goal = (out.chapter!.next || '').trim();
+        }
         const settled = applySettle(
           world,
           state,
@@ -272,6 +282,12 @@ function PlayInner() {
           <Link href="/ledger" className="back" style={{ marginLeft: 'auto', marginRight: 14 }}>结算</Link>
           <div className="right">{save.turns.filter(t => t.role === 'assistant').length} 回合</div>
         </div>
+        {save.state?.chapter && (
+          <div className="meta" style={{ padding: '0 20px 8px' }}>
+            第 {save.state.chapter.index} 章
+            {save.state.chapter.goal ? ` · ${save.state.chapter.goal}` : ''}
+          </div>
+        )}
 
         <div className="reader">
           {!started && (
