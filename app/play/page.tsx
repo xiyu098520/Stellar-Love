@@ -9,6 +9,7 @@ import { applyDelta, clampAttr, emptyState, seedState, snapDelta, stageOf } from
 import { advance, clockShort, clockText, clockValue, initClock } from '@/lib/clock';
 import { chapterLabel, chapterTurns, numberedTurns } from '@/lib/chapter';
 import { makeRouteSave } from '@/lib/routes';
+import { appendIncoming, loadThreads } from '@/lib/phone';
 import { takePendingPush } from '@/lib/phone';
 import {
   activeProfile,
@@ -47,6 +48,7 @@ type Settle = {
   minutes?: number;
   money?: number;
   moneyReason?: string;
+  phone?: { who?: string; text?: string }[];
   attrs?: AttrSettle[];
 };
 
@@ -244,6 +246,8 @@ function PlayInner() {
   const [money, setMoney] = useState(0);
   /** 主线好感到了 30，这一回合出现邀请 */
   const [invite, setInvite] = useState<Character | null>(null);
+  /** 手机里还没推进剧情的条数 */
+  const [phoneLeft, setPhoneLeft] = useState(0);
   const bottomRef = useRef<HTMLDivElement>(null);
   /** 手机推送只自动跑一次 */
   const pushHandled = useRef(false);
@@ -258,6 +262,7 @@ function PlayInner() {
       const s = saveId ? await getSave(saveId) : await latestSaveOf(loadWorld()?.id || '');
       setSave(s || null);
       if (s) setMoney(loadWallet(s.worldId, loadWorld()).money);
+      if (s) countPhoneLeft(s.id);
       if (!s) setErr('找不到这份存档，回大厅重新开始。');
     })();
   }, [saveId]);
@@ -642,6 +647,12 @@ function PlayInner() {
           setMoney(wallet.money);
         }
         await putSave(done);
+        // 这一回合他有没有在手机里找她
+        for (const p of out?.settle?.phone || []) {
+          const c = world?.characters.find(x => x.name === p.who && x.name.trim());
+          if (c && p.text) appendIncoming(done.id, c.id, p.text);
+        }
+        countPhoneLeft(done.id);
         // 主线里好感到了 30、他这一回合在场，就问一次要不要去见他
         if (done.kind === 'main' && world && out?.settle?.who) {
           const c = world.characters.find(x => x.role !== 'npc' && x.name === out?.settle?.who);
@@ -675,6 +686,15 @@ function PlayInner() {
   async function begin() {
     if (!save) return;
     await run(save);
+  }
+
+  function countPhoneLeft(saveId: string) {
+    const threads = loadThreads(saveId);
+    const n = Object.values(threads).reduce(
+      (sum, list) => sum + (list || []).filter(m => !m.pushed).length,
+      0,
+    );
+    setPhoneLeft(n);
   }
 
   /** 去见他：从这一刻切出个人线 */
@@ -999,6 +1019,13 @@ function PlayInner() {
 
       {started && !reading && !readMode && (
         <div className="dock">
+          {phoneLeft > 0 && save && (
+            <div className="choices">
+              <button className="choice" onClick={() => router.push(`/phone?save=${save.id}`)}>
+                手机里有 {phoneLeft} 条 · 去看看
+              </button>
+            </div>
+          )}
           {dueAppt && (
             <div className="choices">
               <button className="choice" onClick={() => goAppointment(dueAppt.id)}>

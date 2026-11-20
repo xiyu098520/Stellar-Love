@@ -81,10 +81,17 @@ function PhoneInner() {
     setGiftPick(false);
 
     const now = Date.now();
-    const shown = sending ? `（送出${sending.name}）${text}` : text;
+    const clock = advance(save.state?.clock || initClock(world), 3);
+    const today = clockText(clock).split(' ')[0];
+    const dupGift =
+      !!sending &&
+      !!wallet &&
+      wallet.gifts.some(g => g.characterId === person.id && (g.time || '').split(' ')[0] === today);
+    const shown = sending
+      ? `（送出${sending.name}${dupGift ? '，今天已经送过他东西了' : ''}）${text}`
+      : text;
     const mine: PhoneMsg = { id: `${now}`, role: 'me', text: shown, at: now };
     let list = [...msgs, mine];
-    const clock = advance(save.state?.clock || initClock(world), 3);
     const withMine: Save = {
       ...save,
       state: { ...(save.state || emptyState()), clock, time: clockText(clock) },

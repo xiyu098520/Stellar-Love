@@ -27,6 +27,21 @@ export function saveThreads(saveId: string, threads: PhoneThreads) {
   localStorage.setItem(threadKey(saveId), JSON.stringify(threads));
 }
 
+/** 剧情里他主动发来一条：进他的聊天，等你去看 */
+export function appendIncoming(saveId: string, characterId: string, text: string): void {
+  if (!text.trim()) return;
+  const threads = loadThreads(saveId);
+  const list = threads[characterId] || [];
+  const msg: PhoneMsg = {
+    id: `p_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 5)}`,
+    role: 'them',
+    text: text.trim(),
+    at: Date.now(),
+    pushed: false,
+  };
+  saveThreads(saveId, { ...threads, [characterId]: [...list, msg] });
+}
+
 /** 主线里见过面的人才会出现在通讯录；个人线里只有他；可联系的 NPC 两边都在 */
 export function phoneContacts(world: World, save: Save): Character[] {
   const leads = world.characters.filter(c => c.role !== 'npc' && c.name.trim());

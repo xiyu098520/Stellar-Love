@@ -16,6 +16,7 @@ const FORMAT = `只输出一个 JSON 对象，不要任何解释、不要代码�
   "place": "旧街 · 金记",
   "settle": { "who": "砂金", "delta": 3, "reason": "你说中了他喜欢的老唱片", "minutes": 15,
               "money": 0, "moneyReason": "",
+              "phone": [],
               "attrs": [{ "who": "", "name": "金钱", "delta": -38, "reason": "买了一杯手冲" }] }
 }
 tone 可选，只能是 sighs、whispers、softly、laughs、sad、happy、angry、excited、nervous、calm、tired、sarcastic 之一。
@@ -49,6 +50,8 @@ minutes：这一回合过去了多少分钟，只填数字，不写时刻。
 money：这一段真的发生的金钱变化，正数是收入，负数是支出，只填数字。
   工资、转账、买东西、付房租、收红包都算；没发生就写 0。金额要符合这个人的收入和一贯的消费方式，不许凭空给大额。
 moneyReason：一句话说清这笔钱怎么回事，比如「便利店夜班工资」「他转来的 200」「买了一杯手冲」。
+phone：这一回合有没有人在手机里找她。最多一条，比如 [{"who":"砂金","text":"在忙吗"}]。
+  只在他不方面前出现、或这件事本来就适合发消息时用；没发生就写 []。不要替她回消息。
 attrs：这一回合真正变动的自定义数值，写成数组；没有变动就写 []。
   who 留空 = 你的数值；填人物名 = 那个人的数值。
   name 必须用【数值】里给出的原名字，不许自己起新名字。
