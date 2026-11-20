@@ -261,6 +261,18 @@ export default function CharactersPage() {
                               <div className="tip">先去「剧本 → 世界观 → 场所与势力」添加地点。</div>
                             )}
                           </div>
+                          <div className="field">
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <input
+                                type="checkbox"
+                                checked={!!c.contact}
+                                onChange={e => patch(c.id, { contact: e.target.checked || undefined })}
+                                style={{ width: 'auto' }}
+                              />
+                              手机里能联系到
+                            </label>
+                            <div className="tip">勾上之后，主线和个人线的手机通讯录里都会有这个人。</div>
+                          </div>
                         </>
                       )}
 

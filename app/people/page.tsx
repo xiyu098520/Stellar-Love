@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { stageOf } from '@/lib/affinity';
 import { delVoiceClip, listSaves, listVoiceClips, loadWorld, saveWorld } from '@/lib/store';
-import type { Character, Save, VoiceClip, World } from '@/lib/types';
+import type { Character, Save, VoiceClip, Wallet, World } from '@/lib/types';
+import { loadWallet } from '@/lib/wallet';
 
 const IconPlay = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
@@ -25,13 +26,16 @@ export default function PeoplePage() {
   const [loaded, setLoaded] = useState(false);
   const [picked, setPicked] = useState<Character | null>(null);
   const [voices, setVoices] = useState<VoiceClip[]>([]);
+  const [wallet, setWallet] = useState<Wallet | null>(null);
   const [playing, setPlaying] = useState('');
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const voiceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     (async () => {
-      setWorld(loadWorld());
+      const w = loadWorld();
+      setWorld(w);
+      if (w) setWallet(loadWallet(w.id, w));
       setSaves(await listSaves());
       setVoices(await listVoiceClips().catch(() => []));
       setLoaded(true);
@@ -101,6 +105,29 @@ export default function PeoplePage() {
   const mine = picked
     ? voices.filter(v => v.characterId === picked.id && (!world?.id || v.worldId === world.id))
     : [];
+
+  const got = picked
+    ? (wallet?.gifts || [])
+        .filter(g => g.characterId === picked.id && g.memorable !== false)
+        .sort((a, b) => b.at - a.at)
+    : [];
+
+  const days = (() => {
+    if (!main?.state?.clock || !world?.startDate) return 0;
+    const [y, m, d] = world.startDate.split('-').map(Number);
+    if (!y || !m || !d) return 0;
+    const a = Date.UTC(y, m - 1, d);
+    const c = main.state.clock;
+    const b = Date.UTC(c.y, c.m - 1, c.d);
+    return Math.max(1, Math.floor((b - a) / 86400000) + 1);
+  })();
+
+  const appeared = picked
+    ? saves
+        .filter(s => s.worldId === world?.id && s.kind === 'main')
+        .flatMap(s => s.turns || [])
+        .filter(t => t.role === 'assistant' && picked.name && t.text.includes(picked.name)).length
+    : 0;
 
   return (
     <main className="page">
@@ -228,7 +255,22 @@ export default function PeoplePage() {
               </div>
 
               <div style={{ display: 'grid', gap: 8, marginTop: 18 }}>
-                {['约会', '番外', '羁绊'].map(t => (
+                <div className="save-row" style={{ display: 'block' }}>
+                  <div className="save-title" style={{ marginBottom: 8 }}>羁绊</div>
+                  <div className="muted" style={{ fontSize: 13, lineHeight: 2 }}>
+                    认识 {days} 天　出场 {appeared} 回合　收到 {got.length} 件礼物　语音 {mine.length} 条
+                  </div>
+                  {got.length === 0 && <div className="muted" style={{ fontSize: 12 }}>还没收到过有纪念意义的东西。</div>}
+                  {got.map(g => (
+                    <div className="ledger-bar" key={g.id}>
+                      <span>{g.itemName}</span>
+                      <span className="muted" style={{ marginLeft: 'auto' }}>
+                        {g.time || ''}{g.line === 'route' ? ' · 个人线' : ''}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                {['约会', '番外'].map(t => (
                   <div
                     key={t}
                     className="save-row"

@@ -9,14 +9,15 @@ import {
   loadThreads,
   phoneContacts,
   phonePrompt,
-  pushText,
+  pushAllText,
   saveThreads,
   setPendingPush,
   type PhoneMsg,
   type PhoneThreads,
 } from '@/lib/phone';
+import type { Character, Item, Save, Settings, Wallet, World } from '@/lib/types';
+import { giftItem, loadWallet, saveWallet } from '@/lib/wallet';
 import { activeProfile, getSave, latestSaveOf, loadSettings, loadWorld, putSave } from '@/lib/store';
-import type { Character, Save, Settings, World } from '@/lib/types';
 
 function PhoneInner() {
   const router = useRouter();
@@ -31,6 +32,9 @@ function PhoneInner() {
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  const [wallet, setWallet] = useState<Wallet | null>(null);
+  const [giftPick, setGiftPick] = useState(false);
+  const [gift, setGift] = useState<Item | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -39,7 +43,10 @@ function PhoneInner() {
       setWorld(w);
       setSettings(loadSettings());
       setSave(s || null);
-      if (s) setThreads(loadThreads(s.id));
+      if (s) {
+        setThreads(loadThreads(s.id));
+        setWallet(loadWallet(s.worldId, w));
+      }
     })();
   }, [saveId]);
 
@@ -47,7 +54,13 @@ function PhoneInner() {
     world && save ? phoneContacts(world, save) : [];
   const person = contacts.find(c => c.id === active);
   const msgs = active ? threads[active] || [] : [];
-  const unsent = msgs.filter(m => !m.pushed).length;
+  const left = contacts.reduce(
+    (n, c) => n + (threads[c.id] || []).filter(m => !m.pushed).length,
+    0,
+  );
+  const giftItems = (world?.items || []).filter(
+    i => i.kind === 'gift' && (wallet?.inventory[i.id] || 0) > 0,
+  );
 
   async function commit(next: Save, list: PhoneMsg[]) {
     await putSave(next);
@@ -60,13 +73,16 @@ function PhoneInner() {
   async function send() {
     if (!save || !world || !settings || !person || busy) return;
     const text = draft.trim();
-    if (!text) return;
+    const sending = gift;
+    if (!text && !sending) return;
     setBusy(true);
     setErr('');
     setDraft('');
+    setGiftPick(false);
 
     const now = Date.now();
-    const mine: PhoneMsg = { id: `${now}`, role: 'me', text, at: now };
+    const shown = sending ? `（送出${sending.name}）${text}` : text;
+    const mine: PhoneMsg = { id: `${now}`, role: 'me', text: shown, at: now };
     let list = [...msgs, mine];
     const clock = advance(save.state?.clock || initClock(world), 3);
     const withMine: Save = {
@@ -88,15 +104,15 @@ function PhoneInner() {
       const raw = await chat(
         profile,
         [
-          { role: 'system', content: phonePrompt(world, withMine, person) },
-          { role: 'user', content: `最近的消息：\n${recent}\n\n她刚发来：${text}` },
+          { role: 'system', content: phonePrompt(world, withMine, person, sending?.name) },
+          { role: 'user', content: `最近的消息：\n${recent}\n\n她刚发来：${text || '（没有说话，只是把东西递了过来）'}${sending ? `，并送出「${sending.name}」` : ''}` },
         ],
         { json: true, maxTokens: 500 },
       );
 
-      let out: { messages?: string[]; minutes?: number };
+      let out: { messages?: string[]; minutes?: number; accepted?: boolean };
       try {
-        out = parseJSON<{ messages?: string[]; minutes?: number }>(raw);
+        out = parseJSON<{ messages?: string[]; minutes?: number; accepted?: boolean }>(raw);
       } catch {
         out = { messages: [raw.trim()] };
       }
@@ -121,6 +137,20 @@ function PhoneInner() {
         updatedAt: Date.now(),
       };
       await commit(after, list);
+
+      // 他收下了，东西才真的记到他名下；推辞的话还留在背包里
+      if (sending && wallet && out.accepted !== false) {
+        const nextWallet = giftItem(wallet, sending, person.id, person.name, {
+          time: clockText(clock2),
+          line: save.kind === 'route' ? 'route' : 'main',
+          saveId: save.id,
+        });
+        if (nextWallet) {
+          saveWallet(save.worldId, nextWallet);
+          setWallet(nextWallet);
+        }
+      }
+      setGift(null);
     } catch (e) {
       setErr(e instanceof Error ? e.message : '发送失败');
     } finally {
@@ -129,11 +159,13 @@ function PhoneInner() {
   }
 
   function push() {
-    if (!save || !person || !unsent) return;
-    const text = pushText(save, person, msgs);
+    if (!save || !left) return;
+    const text = pushAllText(save, contacts, threads);
     setPendingPush(save.id, text);
-    const marked = msgs.map(m => ({ ...m, pushed: true }));
-    const all = { ...loadThreads(save.id), [active]: marked };
+    const all: PhoneThreads = { ...threads };
+    for (const c of contacts) {
+      all[c.id] = (all[c.id] || []).map(m => ({ ...m, pushed: true }));
+    }
     saveThreads(save.id, all);
     setThreads(all);
     router.push(`/play?save=${save.id}&push=1`);
@@ -190,8 +222,8 @@ function PhoneInner() {
                 <button className="back" onClick={() => { setActive(''); setErr(''); }}>
                   通讯录
                 </button>
-                <button className="mini push" disabled={!unsent} onClick={push}>
-                  {unsent ? `推送剧情 · ${unsent} 条` : '没有要推送的'}
+                <button className="mini push" disabled={!left} onClick={push}>
+                  {left ? `推送剧情 · ${left} 条` : '没有要推送的'}
                 </button>
               </div>
 
@@ -207,17 +239,54 @@ function PhoneInner() {
 
               {err && <div className="err">{err}</div>}
 
+              {gift && (
+                <div className="tip" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  将送出：{gift.name}
+                  <button className="mini" onClick={() => setGift(null)}>取消</button>
+                </div>
+              )}
+              {giftPick && (
+                <div className="ledger-card" style={{ marginBottom: 8 }}>
+                  {giftItems.length === 0 && (
+                    <div className="muted">背包里没有可以送的礼物。去「背包」买一件有纪念意义的东西。</div>
+                  )}
+                  {giftItems.map(it => (
+                    <button
+                      key={it.id}
+                      className="phone-row"
+                      onClick={() => {
+                        setGift(it);
+                        setGiftPick(false);
+                      }}
+                    >
+                      <span className="phone-who">
+                        <span className="phone-name">{it.name}</span>
+                        <span className="phone-preview">还剩 {wallet?.inventory[it.id] || 0} 件</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
               <div className="phone-input">
+                <button
+                  className="dock-icon"
+                  title="送东西"
+                  onClick={() => setGiftPick(v => !v)}
+                  disabled={busy}
+                >
+                  ＋
+                </button>
                 <input
                   value={draft}
-                  placeholder={`给${person.name}发消息`}
+                  placeholder={gift ? `连同${gift.name}一起说点什么` : `给${person.name}发消息`}
                   onChange={e => setDraft(e.target.value)}
                   onKeyDown={e => {
                     if (e.key === 'Enter') send();
                   }}
                   disabled={busy}
                 />
-                <button onClick={send} disabled={busy || !draft.trim()}>发送</button>
+                <button onClick={send} disabled={busy || (!draft.trim() && !gift)}>发送</button>
               </div>
             </>
           )}
