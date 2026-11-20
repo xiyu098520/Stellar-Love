@@ -22,6 +22,9 @@ segments 至少 6 段、正文合计 800 到 1600 字。她一次读不完，所
 只要有人开口，就必须单独占一条 dialogue，一句台词一条；同一个人连说三句，就写成三条 dialogue，不要把三句塞进一条。
 没有名字的人（店员、员工、助理、路人）开口时，who 写身份称呼，例如「便利店店员」。choices 给 2 到 4 条，每条不超过 18 字，写成她能做的事，不写心理活动。`;
 
+const JA_RULE = `
+每条 dialogue 额外给一个 "ja"：这句台词的自然日文口语（动漫对话那种，不要敬语腔，不要逐字直译），称呼、人称和情绪跟原句一致，ja 里不要写方括号标记。narration 不要 ja，text 照旧用中文。`;
+
 /** 结算规则：只允许报这几个档，理由必须具体 */
 const SETTLE_RULE = `【结算】
 每回合结尾在 settle 里申报一次，不许省略。
@@ -311,7 +314,7 @@ export function routeCharacterId(save: Save): string | null {
   return save.kind === 'route' && save.routeOf ? save.routeOf : null;
 }
 
-export function buildSystem(world: World, save: Save): string {
+export function buildSystem(world: World, save: Save, lang: 'zh' | 'ja' = 'zh'): string {
   const routeId = routeCharacterId(save);
   const leads = world.characters.filter(c => c.role !== 'npc' && c.name.trim());
   const cast = routeId ? leads.filter(c => c.id === routeId) : leads;
@@ -373,7 +376,7 @@ ${intimacyText()}
 ${SETTLE_RULE}
 
 【输出】
-${FORMAT}`;
+${FORMAT}${lang === 'ja' ? JA_RULE : ''}`;
 }
 
 export function flatten(t: Turn): string {
@@ -386,8 +389,8 @@ export function flatten(t: Turn): string {
   return t.text;
 }
 
-export function buildMessages(world: World, save: Save): ChatMessage[] {
-  const system = buildSystem(world, save);
+export function buildMessages(world: World, save: Save, lang: 'zh' | 'ja' = 'zh'): ChatMessage[] {
+  const system = buildSystem(world, save, lang);
   const history: ChatMessage[] = [];
   const memory: string[] = [];
   const sums = new Map((save.summaries || []).map(s => [s.turn, s.text]));

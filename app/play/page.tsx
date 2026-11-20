@@ -203,7 +203,7 @@ function splitNarration(text: string): string[] {
   return out.length ? out : [text];
 }
 
-type Beat = { type: 'dialogue' | 'narration'; who?: string; text: string; tone?: string };
+type Beat = { type: 'dialogue' | 'narration'; who?: string; text: string; tone?: string; ja?: string };
 
 /** 把一回合的分段铺成逐句播放的节拍：台词一句一句，旁白一段一段 */
 function beatsOf(segments: Segment[] | undefined): Beat[] {
@@ -211,7 +211,7 @@ function beatsOf(segments: Segment[] | undefined): Beat[] {
   for (const seg of segments || []) {
     if (seg.type === 'dialogue')
       splitNarration(seg.text).forEach(text =>
-        out.push({ type: 'dialogue', who: seg.who, text, tone: seg.tone }),
+        out.push({ type: 'dialogue', who: seg.who, text, tone: seg.tone, ja: seg.ja }),
       );
     else if (seg.text.trim()) out.push({ type: 'narration', text: seg.text.trim() });
   }
@@ -304,12 +304,13 @@ function PlayInner() {
     [world],
   );
 
-  async function synth(text: string, who?: string, tone?: string): Promise<string> {
+  async function synth(text: string, who?: string, tone?: string, ja?: string): Promise<string> {
     const p = voiceProfile!;
     const c = charOf(who);
     const voice = c?.voiceId || (c && p.voices?.[c.id]) || p.voiceId || 'alloy';
     const v3 = /v[3-9]/i.test(p.model || '');
-    const say = v3 && tone ? `[${tone}] ${text}` : text;
+    const spoken = p.lang === 'ja' && ja?.trim() ? ja.trim() : text;
+    const say = v3 && tone ? `[${tone}] ${spoken}` : spoken;
 
     let res = await fetch('/api/tts', {
       method: 'POST',
@@ -359,7 +360,7 @@ function PlayInner() {
     });
   }
 
-  async function play(key: string, text: string, who?: string, tone?: string) {
+  async function play(key: string, text: string, who?: string, tone?: string, ja?: string) {
     const c = charOf(who);
     const clip = c ? clips[clipKey(c.id, text)] : undefined;
     try {
@@ -369,7 +370,7 @@ function PlayInner() {
           setErr('还没有配语音接口，先去设定里填。');
           return;
         }
-        url = await synth(text, who, tone);
+        url = await synth(text, who, tone, ja);
         cacheRef.current[key] = url;
       }
       audioRef.current?.pause();
@@ -426,7 +427,7 @@ function PlayInner() {
     }
   }
 
-  const renderDlg = (who: string | undefined, text: string, key: string, tone?: string) => {
+  const renderDlg = (who: string | undefined, text: string, key: string, tone?: string, ja?: string) => {
     const c = charOf(who);
     const clip = c ? clips[clipKey(c.id, text)] : undefined;
     return (
@@ -440,7 +441,7 @@ function PlayInner() {
                 title="播放这句"
                 onClick={e => {
                   e.stopPropagation();
-                  play(key, text, who, tone);
+                  play(key, text, who, tone, ja);
                 }}
               >
                 {speaking === key ? <IconStop /> : <IconPlay />}
@@ -522,7 +523,7 @@ function PlayInner() {
           ...touched,
           state: seedState(world, touched.state || emptyState()),
         };
-        const messages = buildMessages(world, seeded);
+        const messages = buildMessages(world, seeded, voiceProfile?.lang === 'ja' ? 'ja' : 'zh');
         const storyApi = activeProfile(settings, 'story');
         const parseOut = (s: string): ModelOut | null => {
           try {
@@ -833,14 +834,14 @@ function PlayInner() {
                       k < seen ? (
                         <div className={`beat ${b.type}`} key={k}>
                           {b.type === 'dialogue'
-                            ? renderDlg(b.who, b.text, `t${i}b${k}`, b.tone)
+                            ? renderDlg(b.who, b.text, `t${i}b${k}`, b.tone, b.ja)
                             : renderNarr(b.text, `t${i}b${k}`)}
                         </div>
                       ) : null,
                     )
                   : (t.segments || []).map((seg, k) =>
                       seg.type === 'dialogue'
-                        ? renderDlg(seg.who, seg.text, `t${i}b${k}`, seg.tone)
+                        ? renderDlg(seg.who, seg.text, `t${i}b${k}`, seg.tone, seg.ja)
                         : renderNarr(seg.text, `t${i}b${k}`),
                     )}
               </div>

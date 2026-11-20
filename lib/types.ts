@@ -1,6 +1,6 @@
 export type Segment =
   | { type: 'narration'; text: string }
-  | { type: 'dialogue'; who: string; text: string; tone?: string };
+  | { type: 'dialogue'; who: string; text: string; tone?: string; ja?: string };
 
 export type Turn = {
   role: 'user' | 'assistant';
