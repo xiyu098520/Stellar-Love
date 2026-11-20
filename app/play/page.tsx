@@ -35,6 +35,7 @@ import type {
   World,
 } from '@/lib/types';
 import type { NumberedTurn } from '@/lib/chapter';
+import { applyMoney, earnCoins, loadWallet, saveWallet } from '@/lib/wallet';
 
 type AttrSettle = { who?: string; name?: string; delta?: number; reason?: string };
 type Settle = {
@@ -42,6 +43,8 @@ type Settle = {
   delta?: number;
   reason?: string;
   minutes?: number;
+  money?: number;
+  moneyReason?: string;
   attrs?: AttrSettle[];
 };
 
@@ -235,6 +238,8 @@ function PlayInner() {
   const [draft, setDraft] = useState('');
   const [review, setReview] = useState(false);
   const [clips, setClips] = useState<Record<string, VoiceClip>>({});
+  /** 钱包跨存档共用，进页面时读一次，花完再写回 */
+  const [money, setMoney] = useState(0);
   const bottomRef = useRef<HTMLDivElement>(null);
   /** 手机推送只自动跑一次 */
   const pushHandled = useRef(false);
@@ -248,6 +253,7 @@ function PlayInner() {
       setWall(loadWallpaper().url);
       const s = saveId ? await getSave(saveId) : await latestSaveOf(loadWorld()?.id || '');
       setSave(s || null);
+      if (s) setMoney(loadWallet(s.worldId, loadWorld()).money);
       if (!s) setErr('找不到这份存档，回大厅重新开始。');
     })();
   }, [saveId]);
@@ -516,7 +522,11 @@ function PlayInner() {
         nextSave.turns.length && nextSave.turns[nextSave.turns.length - 1].role === 'user'
           ? nextSave.turns.length - 1
           : nextSave.turns.length;
-      const undo: UndoSnapshot = { turns: baseTurns, state: nextSave.state || emptyState() };
+      const undo: UndoSnapshot = {
+        turns: baseTurns,
+        state: nextSave.state || emptyState(),
+        wallet: world ? loadWallet(nextSave.worldId, world) : undefined,
+      };
       try {
         const touched = touchHits(world, nextSave);
         const seeded: Save = {
@@ -603,6 +613,22 @@ function PlayInner() {
           undo,
           updatedAt: Date.now(),
         };
+        // 钱和抽卡币：这一回合真的变了才记，每一回合都发抽卡币
+        if (world && undo.wallet) {
+          let wallet = undo.wallet;
+          const amount = Number(out?.settle?.money ?? 0);
+          if (Number.isFinite(amount) && amount !== 0) {
+            wallet = applyMoney(wallet, amount, {
+              reason: (out?.settle?.moneyReason || '').trim() || (amount > 0 ? '收入' : '支出'),
+              time: state.time,
+              place: state.place,
+              turnIndex: nextSave.turns.length,
+            });
+          }
+          wallet = earnCoins(wallet, world.coinPerTurn ?? 100);
+          saveWallet(world.id, wallet);
+          setMoney(wallet.money);
+        }
         await putSave(done);
         setSeen(1);
         setSave(done);
@@ -675,6 +701,11 @@ function PlayInner() {
       updatedAt: Date.now(),
     };
     await putSave(next);
+    // 撤回一回合，钱、账目、抽卡币一起退回
+    if (u.wallet) {
+      saveWallet(save.worldId, u.wallet);
+      setMoney(u.wallet.money);
+    }
     setSeen(9999);
     setSave(next);
   }
@@ -785,7 +816,7 @@ function PlayInner() {
           <div className="right">
             {readMode
               ? '只读回放'
-              : `${save.state?.clock ? `${clockShort(save.state.clock)} · ` : ''}${
+              : `${money} 金 · ${save.state?.clock ? `${clockShort(save.state.clock)} · ` : ''}${
                   entries.filter(e => e.turn.role === 'assistant').length
                 } 回合`}
           </div>

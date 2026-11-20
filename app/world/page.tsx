@@ -429,6 +429,20 @@ export default function WorldPage() {
                 <div className="tip">第一回合从几点开始。之后由模型报这一回合过了多少分钟，程序往下走，跨过午夜就进第二天。</div>
               </div>
 
+              <div className="field">
+                <label>初始资金</label>
+                <input
+                  inputMode="numeric"
+                  value={w.initialMoney ?? ''}
+                  onChange={e => {
+                    const n = Number(e.target.value.replace(/[^\d-]/g, ''));
+                    patch({ initialMoney: Number.isFinite(n) ? n : 0 });
+                  }}
+                  placeholder="比如 5000"
+                />
+                <div className="tip">主线和个人线共用这一份钱。之后剧情里赚的、花的，都记在账本里。</div>
+              </div>
+
               <Link href="/characters" className="menu-row" style={{ marginTop: 6 }}>
                 <span className="k">人物</span>
                 <span className="v">

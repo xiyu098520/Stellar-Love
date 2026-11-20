@@ -7,7 +7,8 @@ import { chapterLabel } from '@/lib/chapter';
 import { chat } from '@/lib/llm';
 import { buildSummaryMessages } from '@/lib/prompt';
 import { activeProfile, listSaves, loadSettings, loadWorld, putSave } from '@/lib/store';
-import type { AffinityEntry, Save, Settings, World } from '@/lib/types';
+import type { AffinityEntry, Save, Settings, Wallet, World } from '@/lib/types';
+import { loadWallet } from '@/lib/wallet';
 
 type Row = AffinityEntry & { saveId: string; saveTitle: string; kind2: string };
 
@@ -19,10 +20,13 @@ export default function LedgerPage() {
   const [open, setOpen] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [running, setRunning] = useState('');
+  const [wallet, setWallet] = useState<Wallet | null>(null);
 
   useEffect(() => {
-    setWorld(loadWorld());
+    const w = loadWorld();
+    setWorld(w);
     setSettings(loadSettings());
+    if (w) setWallet(loadWallet(w.id, w));
     listSaves().then(rows => {
       setSaves(rows);
       setLoaded(true);
@@ -203,6 +207,34 @@ export default function LedgerPage() {
               </div>
             );
           })}
+
+          <div className="section-title" style={{ marginTop: 26 }}>钱与账目</div>
+          {!wallet && <div className="muted">还没有开始，所以还没钱。</div>}
+          {wallet && (
+            <div className="ledger-card">
+              <div className="ledger-card-top">
+                <span>余额 {wallet.money} 金</span>
+                <span className="muted">抽卡币 {wallet.coins}</span>
+              </div>
+              {wallet.ledger.length === 0 && (
+                <div className="muted">还没有进出。剧情里赚的、花的，都会记在这里。</div>
+              )}
+              {[...wallet.ledger]
+                .sort((a, b) => b.at - a.at)
+                .map(e => (
+                  <div className="ledger-bar" key={e.id}>
+                    <span className={e.amount > 0 ? 'delta up' : 'delta down'}>
+                      {e.amount > 0 ? `+${e.amount}` : e.amount}
+                    </span>
+                    <span>{e.reason}</span>
+                    <span className="muted" style={{ marginLeft: 'auto' }}>
+                      {e.time || ''}
+                      {e.place ? ` · ${e.place}` : ''}
+                    </span>
+                  </div>
+                ))}
+            </div>
+          )}
 
           <div className="section-title" style={{ marginTop: 26 }}>涨跌记录</div>
 

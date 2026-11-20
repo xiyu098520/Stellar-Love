@@ -46,6 +46,8 @@ export type Character = {
   rounds?: number;
   /** NPC：所属地区，对应场所里的名称 */
   region?: string;
+  /** NPC：能不能在手机通讯录里找到 */
+  contact?: boolean;
   fields?: { k: string; v: string }[];
   /** 这个角色自己的数值，比如黑化度 */
   attrs?: AttrDef[];
@@ -117,6 +119,16 @@ export type World = {
   extras?: WorldBlock[];
   /** 事件：节日 / 常驻 / 动态 / 事件 */
   events?: EventEntry[];
+  /** 剧本里的物品与商店 */
+  items?: Item[];
+  /** 开局资金 */
+  initialMoney?: number;
+  /** 每回合赚的抽卡币，默认 100 */
+  coinPerTurn?: number;
+  /** 单抽花费，默认 100 */
+  pullCost?: number;
+  /** 十连花费，默认 900 */
+  tenPullCost?: number;
   /** 旧档案原样保留，新档案不用 */
   blocks?: WorldBlock[];
   characters: Character[];
@@ -128,6 +140,66 @@ export type World = {
   notes?: string;
   opening?: string;
   summary?: string;
+};
+
+/** 一件剧本里的实物，可买可送 */
+export type Item = {
+  id: string;
+  name: string;
+  desc?: string;
+  price: number;
+  /** 商店分组，比如奶茶店、日用品店 */
+  shop?: string;
+  /** gift 有纪念意义；daily 日常消耗，不进赠礼记录 */
+  kind?: 'gift' | 'daily' | 'collect';
+};
+
+/** 一笔钱的进出 */
+export type MoneyEntry = {
+  id: string;
+  at: number;
+  turnIndex: number;
+  time?: string;
+  place?: string;
+  /** 正为收入，负为支出 */
+  amount: number;
+  reason: string;
+  who?: string;
+};
+
+/** 真正送到他手里的一件东西 */
+export type GiftEntry = {
+  id: string;
+  characterId: string;
+  characterName: string;
+  itemId: string;
+  itemName: string;
+  at: number;
+  time?: string;
+  line: 'main' | 'route';
+  saveId: string;
+  memorable?: boolean;
+};
+
+/** 一条带日期的约定，到了那天会出现在待办里 */
+export type Appointment = {
+  id: string;
+  characterId: string;
+  characterName: string;
+  turnIndex: number;
+  clock: Clock;
+  place?: string;
+  note?: string;
+  done?: boolean;
+};
+
+/** 跨存档共用的一份钱包：钱、抽卡币、背包、账目、送出的东西 */
+export type Wallet = {
+  money: number;
+  coins: number;
+  inventory: Record<string, number>;
+  ledger: MoneyEntry[];
+  gifts: GiftEntry[];
 };
 
 export type Relation = {
@@ -189,6 +261,12 @@ export type GameState = {
   charAttrs?: Record<string, Record<string, number>>;
   /** 动态条目：条目键 -> 最近一次命中的轮次 */
   hits?: Record<string, number>;
+  /** 还没完成的约定 */
+  appointments?: Appointment[];
+  /** 每个角色今天有没有收过礼物：角色 id -> y-m-d */
+  giftDay?: Record<string, string>;
+  /** 邀请冷却：角色 id -> 可以再邀请的回合 */
+  inviteAt?: Record<string, number>;
 };
 
 /** 一条收藏下来的语音：合成一次，反复听 */
@@ -209,6 +287,8 @@ export type UndoSnapshot = {
   /** 回退后 turns 截到这里 */
   turns: number;
   state: GameState;
+  /** 这一回合之前的钱包，撤回时一起退 */
+  wallet?: Wallet;
 };
 
 /** 一回合的事件摘要：只记事实，八十个字以内 */
