@@ -27,6 +27,8 @@ export default function ApiSettingsPage() {
   const [fetching, setFetching] = useState(false);
   const [testing, setTesting] = useState(false);
   const [leads, setLeads] = useState<Character[]>([]);
+  const [voices, setVoices] = useState<{ id: string; name: string }[]>([]);
+  const [fetchingVoices, setFetchingVoices] = useState(false);
 
   useEffect(() => {
     setS(loadSettings());
@@ -115,6 +117,45 @@ export default function ApiSettingsPage() {
     }
   }
 
+  async function fetchVoices() {
+    const base = cur.baseUrl.trim().replace(/\/+$/, '');
+    if (!base) {
+      setMsg('先填 API 地址');
+      return;
+    }
+    setFetchingVoices(true);
+    setMsg('读取音色…');
+    try {
+      const headers: Record<string, string> = {};
+      if (cur.apiKey) {
+        headers['xi-api-key'] = cur.apiKey;
+        headers.Authorization = `Bearer ${cur.apiKey}`;
+      }
+      const res = await fetch(`${base}/voices`, { headers });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const rows: any[] = Array.isArray(data?.voices)
+        ? data.voices
+        : Array.isArray(data?.data)
+          ? data.data
+          : [];
+      const list = rows
+        .map(v => ({
+          id: String(v?.voice_id || v?.id || v?.name || ''),
+          name: String(v?.name || v?.voice_id || v?.id || ''),
+        }))
+        .filter(v => v.id);
+      if (!list.length) throw new Error('没读到音色列表');
+      setVoices(list);
+      setMsg(`读到 ${list.length} 个音色`);
+    } catch (e) {
+      setVoices([]);
+      setMsg('音色读取失败：' + (e instanceof Error ? e.message : '没有响应'));
+    } finally {
+      setFetchingVoices(false);
+    }
+  }
+
   async function test() {
     setTesting(true);
     setMsg('测试中…');
@@ -161,7 +202,7 @@ export default function ApiSettingsPage() {
               <button
                 key={t.k}
                 className={`tab${tab === t.k ? ' on' : ''}`}
-                onClick={() => { setTab(t.k); setMsg(''); setModels([]); }}
+                onClick={() => { setTab(t.k); setMsg(''); setModels([]); setVoices([]); }}
               >
                 {t.t}
               </button>
@@ -226,17 +267,15 @@ export default function ApiSettingsPage() {
               onChange={e => patch({ model: e.target.value })}
               placeholder={tab === 'tts' ? 'eleven_multilingual_v2' : 'gemini-3.8-flash'}
             />
-            {tab !== 'tts' && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
-                <button className="mini" onClick={fetchModels} disabled={fetching}>
-                  {fetching ? '读取中…' : '拉取模型列表'}
-                </button>
-                <span className="muted" style={{ fontSize: 11 }}>
-                  点下面的名字就会自动填进来；读取失败多半是接口没开跨域，手填也行
-                </span>
-              </div>
-            )}
-            {tab !== 'tts' && models.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
+              <button className="mini" onClick={fetchModels} disabled={fetching}>
+                {fetching ? '读取中…' : '拉取模型列表'}
+              </button>
+              <span className="muted" style={{ fontSize: 11 }}>
+                点下面的名字就会自动填进来；读取失败多半是接口没开跨域，手填也行
+              </span>
+            </div>
+            {models.length > 0 && (
               <div className="chips" style={{ marginTop: 8 }}>
                 {models.slice(0, 40).map(m => (
                   <span
@@ -286,6 +325,27 @@ export default function ApiSettingsPage() {
                   onChange={e => patch({ voiceId: e.target.value })}
                   placeholder="voice_id"
                 />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
+                  <button className="mini" onClick={fetchVoices} disabled={fetchingVoices}>
+                    {fetchingVoices ? '读取中…' : '拉取音色列表'}
+                  </button>
+                  <span className="muted" style={{ fontSize: 11 }}>
+                    读回来之后，下面每个人都可以直接选
+                  </span>
+                </div>
+                {voices.length > 0 && (
+                  <select
+                    value={cur.voiceId || ''}
+                    onChange={e => patch({ voiceId: e.target.value })}
+                  >
+                    <option value="">选一个默认音色</option>
+                    {voices.map(v => (
+                      <option key={v.id} value={v.id}>
+                        {v.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
                 <div className="tip">下面没单独配的角色，都会用这个音色。</div>
               </div>
 
@@ -305,6 +365,21 @@ export default function ApiSettingsPage() {
                     }
                     placeholder={cur.voiceId || 'voice_id'}
                   />
+                  {voices.length > 0 && (
+                    <select
+                      value={cur.voices?.[c.id] || ''}
+                      onChange={e =>
+                        patch({ voices: { ...(cur.voices || {}), [c.id]: e.target.value } })
+                      }
+                    >
+                      <option value="">跟随默认音色</option>
+                      {voices.map(v => (
+                        <option key={v.id} value={v.id}>
+                          {v.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
               ))}
 
