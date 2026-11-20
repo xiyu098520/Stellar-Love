@@ -11,7 +11,7 @@ import {
   saveWorld,
   setActiveWorld,
 } from '@/lib/store';
-import type { AttrDef, EventEntry, Item, World, WorldBlock } from '@/lib/types';
+import type { AttrDef, EventEntry, ExtraStory, Item, World, WorldBlock } from '@/lib/types';
 
 const splitKw = (v: string) => v.split(/[,，、\s]+/).map(s => s.trim()).filter(Boolean);
 
@@ -180,6 +180,21 @@ export default function WorldPage() {
   function dropItem(i: number) {
     if (!w) return;
     commit({ ...w, items: (w.items || []).filter((_, j) => j !== i) });
+  }
+
+  function patchSpecial(i: number, p: Partial<ExtraStory>) {
+    if (!w) return;
+    commit({ ...w, specials: (w.specials || []).map((s, j) => (j === i ? { ...s, ...p } : s)) });
+  }
+
+  function addSpecial() {
+    if (!w) return;
+    commit({ ...w, specials: [...(w.specials || []), { id: newId(), title: '', content: '', unlock: 'gacha' }] });
+  }
+
+  function dropSpecial(i: number) {
+    if (!w) return;
+    commit({ ...w, specials: (w.specials || []).filter((_, j) => j !== i) });
   }
 
   function seedItems() {
@@ -861,6 +876,51 @@ export default function WorldPage() {
               <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
                 <button className="mini" onClick={addItem}>＋ 添加物品</button>
                 <button className="mini" onClick={seedItems}>填入日常商品</button>
+              </div>
+
+              <div className="section-title" style={{ marginTop: 26 }}>番外</div>
+              <div className="muted" style={{ fontSize: 12, lineHeight: 1.9 }}>
+                番外先做框架：写标题、简介和正文，绑给某个人；抽到才会解锁。也可以设成免费，人物页里直接能看。
+              </div>
+              {(w.specials || []).map((s, i) => (
+                <div className="block-card" key={s.id} style={{ marginTop: 8 }}>
+                  <div className="block-body">
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px 76px 28px', gap: 6 }}>
+                      <input value={s.title} onChange={e => patchSpecial(i, { title: e.target.value })} placeholder="标题" />
+                      <select
+                        value={s.characterId || ''}
+                        onChange={e => patchSpecial(i, { characterId: e.target.value || undefined })}
+                      >
+                        <option value="">公共</option>
+                        {(w.characters || []).filter(c => c.role !== 'npc').map(c => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                      <select value={s.unlock || 'gacha'} onChange={e => patchSpecial(i, { unlock: e.target.value as ExtraStory['unlock'] })}>
+                        <option value="gacha">抽卡</option>
+                        <option value="free">免费</option>
+                      </select>
+                      <button className="mini danger" onClick={() => dropSpecial(i)}>×</button>
+                    </div>
+                    <input
+                      value={s.desc || ''}
+                      onChange={e => patchSpecial(i, { desc: e.target.value })}
+                      placeholder="一句话简介"
+                      style={{ marginTop: 6 }}
+                    />
+                    <textarea
+                      className="block-text"
+                      rows={5}
+                      value={s.content}
+                      onChange={e => patchSpecial(i, { content: e.target.value })}
+                      placeholder="番外正文"
+                      style={{ marginTop: 6 }}
+                    />
+                  </div>
+                </div>
+              ))}
+              <div style={{ marginTop: 10 }}>
+                <button className="mini" onClick={addSpecial}>＋ 添加番外</button>
               </div>
             </>
           )}

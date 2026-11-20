@@ -141,6 +141,10 @@ export default function Lobby() {
           <span className="en">BAG</span>
           <span className="cn">背包</span>
         </Link>
+        <Link href="/gacha" className="hud-link" prefetch>
+          <span className="en">GACHA</span>
+          <span className="cn">抽卡</span>
+        </Link>
       </div>
 
       <Link href="/story" className="entry-main" prefetch>

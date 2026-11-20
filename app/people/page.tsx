@@ -28,6 +28,7 @@ export default function PeoplePage() {
   const [voices, setVoices] = useState<VoiceClip[]>([]);
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [playing, setPlaying] = useState('');
+  const [openExtra, setOpenExtra] = useState('');
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const voiceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -270,7 +271,7 @@ export default function PeoplePage() {
                     </div>
                   ))}
                 </div>
-                {['约会', '番外'].map(t => (
+                {['约会'].map(t => (
                   <div
                     key={t}
                     className="save-row"
@@ -282,6 +283,39 @@ export default function PeoplePage() {
                     </span>
                   </div>
                 ))}
+
+                <div className="save-row" style={{ display: 'block' }}>
+                  <div className="save-title" style={{ marginBottom: 8 }}>番外</div>
+                  {(() => {
+                    const list = (world?.specials || []).filter(
+                      s => !s.characterId || s.characterId === picked.id,
+                    );
+                    if (!list.length) return <div className="muted" style={{ fontSize: 12 }}>还没有番外。</div>;
+                    return list.map(s => {
+                      const unlocked = (s.unlock || 'gacha') === 'free' || (wallet?.unlocked || []).includes(s.id);
+                      return (
+                        <div key={s.id} style={{ marginTop: 8 }}>
+                          <button
+                            className="ledger-bar"
+                            style={{ width: '100%', textAlign: 'left' }}
+                            disabled={!unlocked}
+                            onClick={() => setOpenExtra(openExtra === s.id ? '' : s.id)}
+                          >
+                            <span>{s.title || '未命名番外'}</span>
+                            <span className="muted" style={{ marginLeft: 'auto', fontSize: 12 }}>
+                              {unlocked ? '已解锁' : '抽卡解锁'}
+                            </span>
+                          </button>
+                          {unlocked && openExtra === s.id && (
+                            <div className="muted" style={{ fontSize: 13, lineHeight: 1.9, whiteSpace: 'pre-wrap', padding: '8px 2px' }}>
+                              {s.content}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
               </div>
             </>
           )}

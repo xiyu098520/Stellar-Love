@@ -9,6 +9,7 @@ export function emptyWallet(world?: World | null): Wallet {
     inventory: {},
     ledger: [],
     gifts: [],
+    unlocked: [],
   };
 }
 
@@ -24,6 +25,7 @@ export function loadWallet(worldId: string, world?: World | null): Wallet {
       inventory: w?.inventory || {},
       ledger: Array.isArray(w?.ledger) ? w.ledger : [],
       gifts: Array.isArray(w?.gifts) ? w.gifts : [],
+      unlocked: Array.isArray(w?.unlocked) ? w.unlocked : [],
     };
   } catch {
     return emptyWallet(world);

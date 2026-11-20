@@ -123,6 +123,8 @@ export type World = {
   events?: EventEntry[];
   /** 剧本里的物品与商店 */
   items?: Item[];
+  /** 番外 */
+  specials?: ExtraStory[];
   /** 开局资金 */
   initialMoney?: number;
   /** 每回合赚的抽卡币，默认 100 */
@@ -142,6 +144,18 @@ export type World = {
   notes?: string;
   opening?: string;
   summary?: string;
+};
+
+/** 番外：抽到或满足条件才能看的一小段故事 */
+export type ExtraStory = {
+  id: string;
+  title: string;
+  /** 绑定哪个男主，不填是公共番外 */
+  characterId?: string;
+  desc?: string;
+  content: string;
+  /** gacha 抽到才解锁；free 一直能看 */
+  unlock?: 'gacha' | 'free';
 };
 
 /** 一件剧本里的实物，可买可送 */
@@ -202,6 +216,8 @@ export type Wallet = {
   inventory: Record<string, number>;
   ledger: MoneyEntry[];
   gifts: GiftEntry[];
+  /** 已经抽到的番外 id */
+  unlocked?: string[];
 };
 
 export type Relation = {
