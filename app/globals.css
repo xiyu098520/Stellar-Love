@@ -473,9 +473,10 @@ button.off::after { display: none; }
 
 /* ===== 大厅修正：锁定滚动、壁纸满屏、加金饰 ===== */
 html, body { overscroll-behavior: none; }
-html, body { height: 100%; background: #0b0a0f; }
-/* 画布铺壁纸：html 的底色/背景图会被系统整屏绘制，连安全区一起 */
+/* 文档比视口高出 240px：画布越过底部安全区，系统没东西可露出来 */
 html {
+  height: calc(100% + 240px);
+  overflow: hidden;
   color-scheme: dark;
   background-color: #0b0a0f;
   background-image: var(--wall, none);
@@ -483,7 +484,7 @@ html {
   background-position: center top;
   background-repeat: no-repeat;
 }
-body { background-color: transparent; }
+body { height: 100%; background-color: transparent; overflow: hidden; }
 .stage {
   position: fixed;
   inset: 0;
@@ -499,23 +500,22 @@ body { background-color: transparent; }
   top: 0;
   left: 0;
   right: 0;
-  bottom: -160px;
-  background-image: var(--wall);
-  background-size: cover;
-  background-position: center top;
-  background-repeat: no-repeat;
+  bottom: -240px;
   z-index: 0;
 }
-.stage-bg.blank { background-image: none; }
-/* 壁纸层：贴四边并向下多铺 160px，兜住系统安全区 */
+.stage-bg.blank {
+  background:
+    radial-gradient(70% 55% at 50% 42%, rgba(96, 74, 132, .28), transparent 70%),
+    radial-gradient(90% 80% at 12% 92%, rgba(201, 168, 106, .10), transparent 60%),
+    linear-gradient(170deg, #12101a 0%, #0b0a0f 60%, #100d14 100%);
+}
+/* 壁纸层：与画布同尺寸，都往下多铺 240px */
 .stage-photo {
   position: fixed;
   top: 0;
   left: 0;
-  right: 0;
-  bottom: -160px;
   width: 100%;
-  height: auto;
+  height: calc(100% + 240px);
   object-fit: cover;
   object-position: center top;
   z-index: 0;
