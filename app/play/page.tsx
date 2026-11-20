@@ -28,6 +28,7 @@ import type {
   Segment,
   Settings,
   Turn,
+  UndoSnapshot,
   VoiceClip,
   World,
 } from '@/lib/types';
@@ -72,6 +73,13 @@ const IconClock = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4">
     <circle cx="12" cy="12" r="7.5" />
     <path d="M12 7.5V12l3 2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const IconUndo = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4">
+    <path d="M8 5L4 9l4 4" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M4 9h9a6 6 0 0 1 0 12h-2" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
 
@@ -420,6 +428,12 @@ function PlayInner() {
       if (!world || !settings) return;
       setBusy(true);
       setErr('');
+      // 这一回合开始前的样子，撤回时原样退回去
+      const baseTurns =
+        nextSave.turns.length && nextSave.turns[nextSave.turns.length - 1].role === 'user'
+          ? nextSave.turns.length - 1
+          : nextSave.turns.length;
+      const undo: UndoSnapshot = { turns: baseTurns, state: nextSave.state || emptyState() };
       try {
         const touched = touchHits(world, nextSave);
         const seeded: Save = {
@@ -474,6 +488,7 @@ function PlayInner() {
           ...nextSave,
           turns: [...nextSave.turns, turn],
           state: settled,
+          undo,
           updatedAt: Date.now(),
         };
         await putSave(done);
@@ -481,8 +496,9 @@ function PlayInner() {
         setSave(done);
       } catch (e) {
         setErr(e instanceof Error ? e.message : '生成失败');
-        await putSave(nextSave);
-        setSave(nextSave);
+        const failed: Save = { ...nextSave, undo, updatedAt: Date.now() };
+        await putSave(failed);
+        setSave(failed);
       } finally {
         setBusy(false);
       }
@@ -502,6 +518,30 @@ function PlayInner() {
     setSave(next);
     setDraft('');
     await run(next);
+  }
+
+  /** 只退一回合：内容、时间、好感、数值、日志一起退回 */
+  async function undoLast() {
+    if (!save || busy) return;
+    const u = save.undo;
+    if (!u || save.turns.length <= u.turns) {
+      setErr('这一回合还不能撤回。');
+      return;
+    }
+    if (!confirm('撤回上一回合？好感、时间、数值和日志都会退回那之前。')) return;
+    audioRef.current?.pause();
+    setSpeaking('');
+    setErr('');
+    const next: Save = {
+      ...save,
+      turns: save.turns.slice(0, u.turns),
+      state: u.state,
+      undo: undefined,
+      updatedAt: Date.now(),
+    };
+    await putSave(next);
+    setSeen(9999);
+    setSave(next);
   }
 
   if (!save) {
@@ -613,6 +653,15 @@ function PlayInner() {
             <button className="dock-icon" onClick={() => setReview(true)} title="剧情回顾">
               <IconClock />
               <span>回顾</span>
+            </button>
+            <button
+              className="dock-icon"
+              onClick={undoLast}
+              disabled={!save.undo || busy}
+              title="撤回上一回合"
+            >
+              <IconUndo />
+              <span>撤回</span>
             </button>
             <input
               value={draft}

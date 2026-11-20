@@ -204,6 +204,13 @@ export type VoiceClip = {
   createdAt: number;
 };
 
+/** 撤回上一回合用的快照：回合数 + 那一回合之前的状态 */
+export type UndoSnapshot = {
+  /** 回退后 turns 截到这里 */
+  turns: number;
+  state: GameState;
+};
+
 export type Save = {
   id: string;
   worldId: string;
@@ -217,6 +224,8 @@ export type Save = {
   turns: Turn[];
   relations: Relation[];
   state?: GameState;
+  /** 只留一级：撤回上一回合 */
+  undo?: UndoSnapshot;
   createdAt: number;
   updatedAt: number;
 };
