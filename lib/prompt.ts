@@ -79,6 +79,20 @@ function activeNpcRegions(world: World, recent: string): string[] {
     .map(c => c.region as string);
 }
 
+function selfText(world: World): string {
+  const s = world.self || {};
+  const note = (s.note || world.protagonist || '').trim();
+  const lines = [
+    s.name ? `名字：${s.name}` : '',
+    s.age ? `年龄：${s.age}` : '',
+    s.role ? `身份：${s.role}` : '',
+    s.called ? `别人怎么称呼她：${s.called}` : '',
+    s.speech ? `说话习惯：${s.speech}` : '',
+    note ? `其他：${note}` : '',
+  ].filter(Boolean);
+  return lines.length ? lines.join('\n') : '（未设定，按世界观推断）';
+}
+
 /** 固定栏目（不随触发变化的部分） */
 export function worldBlocks(world: World): WorldBlock[] {
   const out: WorldBlock[] = [];
@@ -285,7 +299,7 @@ ${save.kind === 'route'
 ${blocksText(world, save)}
 
 【主角】
-${world.protagonist || '（未设定，按世界观推断）'}
+${selfText(world)}
 ${stateText(world, save) ? `\n${stateText(world, save)}\n` : ''}
 【场上可以有的人物】
 ${cast.map(charText).join('\n\n')}

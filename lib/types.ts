@@ -12,6 +12,20 @@ export type Turn = {
   place?: string;
 };
 
+/** 玩家自己 */
+export type SelfProfile = {
+  name?: string;
+  age?: string;
+  /** 身份：哪家公司的什么人 */
+  role?: string;
+  /** 别人怎么称呼你 */
+  called?: string;
+  /** 说话习惯 */
+  speech?: string;
+  /** 其余资料 */
+  note?: string;
+};
+
 export type Character = {
   id: string;
   name: string;
@@ -100,6 +114,8 @@ export type World = {
   characters: Character[];
   /** 你的全局数值，比如金钱、经验、体力 */
   attrs?: AttrDef[];
+  /** 玩家自己 */
+  self?: SelfProfile;
   protagonist?: string;
   notes?: string;
   opening?: string;
