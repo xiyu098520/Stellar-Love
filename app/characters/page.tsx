@@ -164,17 +164,21 @@ export default function CharactersPage() {
                           </div>
                           <div className="field">
                             <label>所属地区</label>
-                            <input
+                            <select
                               value={c.region || ''}
-                              onChange={e => patch(c.id, { region: e.target.value })}
-                              placeholder="如 西区，会连带那块地方的资料"
-                              list="place-options"
-                            />
-                            <datalist id="place-options">
+                              onChange={e => patch(c.id, { region: e.target.value || undefined })}
+                            >
+                              <option value="">不绑定</option>
                               {places.map((p, i) => (
-                                <option key={i} value={p.title} />
+                                <option key={i} value={p.title}>{p.title}</option>
                               ))}
-                            </datalist>
+                              {c.region && !places.some(p => p.title === c.region) && (
+                                <option value={c.region}>{c.region}（不在场所列表里）</option>
+                              )}
+                            </select>
+                            {!places.length && (
+                              <div className="tip">先去「剧本 → 世界观 → 场所与势力」添加地点。</div>
+                            )}
                           </div>
                         </>
                       )}
