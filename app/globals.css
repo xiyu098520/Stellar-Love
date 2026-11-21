@@ -1466,6 +1466,14 @@ body { background: transparent; }
   margin-top: 6px;
   opacity: .8;
 }
+.lobby-a .a-brand small {
+  display: block;
+  margin-top: 6px;
+  font-family: var(--sans);
+  font-size: 7px;
+  letter-spacing: .18em;
+  color: #6f6a5f;
+}
 .lobby-a .a-coin {
   font-family: var(--sans);
   font-size: 11px;
