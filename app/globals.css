@@ -1576,7 +1576,7 @@ body { background: transparent; }
 .lobby-a .a-gacha {
   position: absolute;
   left: calc(20px + env(safe-area-inset-left));
-  bottom: 146px;
+  bottom: 160px;
   z-index: 6;
   width: 46px;
   height: 56px;
@@ -1615,7 +1615,7 @@ body { background: transparent; }
 .lobby-a .a-start {
   position: absolute;
   right: calc(18px + env(safe-area-inset-right));
-  bottom: 128px;
+  bottom: 142px;
   z-index: 6;
   font-family: var(--sans);
   font-size: 12px;
@@ -1637,7 +1637,7 @@ body { background: transparent; }
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 0;
+  bottom: 14px;
   z-index: 5;
   height: 112px;
   padding: 0 14px;
