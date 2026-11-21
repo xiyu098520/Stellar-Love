@@ -4151,7 +4151,7 @@ html:has(.story-a) body {
 .pc-hero {
   position: relative;
   flex: none;
-  height: 340px;
+  height: 360px;
   overflow: hidden;
   background: linear-gradient(165deg, #2a1826 0%, #121019 58%, #09090f 100%);
 }
@@ -4182,21 +4182,25 @@ html:has(.story-a) body {
   color: rgba(241, 233, 216, .32);
 }
 .pc-hero-art.has span { display: none; }
+.pc-hero-back {
+  position: absolute;
+  left: 20px;
+  top: calc(14px + env(safe-area-inset-top));
+  z-index: 4;
+  min-width: 0;
+  padding: 0;
+  color: rgba(240, 231, 212, .94);
+  text-shadow: 0 1px 10px rgba(0, 0, 0, .85);
+}
 .pc-hero-foot {
   position: absolute;
   left: 20px;
   right: 20px;
-  bottom: 42px;
+  bottom: 16px;
   z-index: 3;
   display: flex;
   align-items: center;
   gap: 10px;
-}
-.pc-hero-foot .pc-back {
-  min-width: 0;
-  padding: 0;
-  color: rgba(240, 231, 212, .92);
-  text-shadow: 0 1px 8px rgba(0, 0, 0, .8);
 }
 .pc-vname {
   position: absolute;
@@ -4239,7 +4243,7 @@ html:has(.story-a) body {
   position: relative;
   z-index: 3;
   flex: none;
-  margin: -26px 20px 0;
+  margin: 14px 20px 0;
   padding: 13px 15px 12px;
   border: 1px solid rgba(217, 188, 134, .3);
   background: rgba(11, 12, 19, .9);

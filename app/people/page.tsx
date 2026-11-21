@@ -164,9 +164,9 @@ export default function PeoplePage() {
             >
               <span>{picked.c.name.slice(0, 1)}</span>
             </div>
+            <button className="pc-back pc-hero-back" onClick={back}>返回</button>
             <div className="pc-vname">{picked.c.name}</div>
             <div className="pc-hero-foot">
-              <button className="pc-back" onClick={back}>返回</button>
               <div className="pc-stamp">
                 {picked.bond.known ? `已相遇 ${picked.bond.known} 天` : '尚未记录'}
               </div>
@@ -231,8 +231,8 @@ export default function PeoplePage() {
                 </>
               )}
 
-              <div className="pc-sub"><b>备注</b><i>NOTE</i></div>
-              <div className="pc-note">{picked.c.note || '还没有写备注。'}</div>
+              <div className="pc-sub"><b>详细资料</b><i>NOTE</i></div>
+              <div className="pc-note">{picked.c.note || '还没有填写详细资料。'}</div>
 
               {!!(picked.c.keywords || []).length && (
                 <>
