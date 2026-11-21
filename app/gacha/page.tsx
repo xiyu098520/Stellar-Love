@@ -75,52 +75,80 @@ export default function GachaPage() {
   }
 
   return (
-    <main className="page">
-      <div className="sheet">
-        <div className="topbar">
-          <button className="back" onClick={() => router.push('/')}>返回</button>
-          <div className="title">抽卡</div>
-          <div className="right">{wallet ? `${wallet.coins} 币` : ''}</div>
+    <main className="g-main">
+      <div className="g-veil" />
+
+      <header className="g-top">
+        <button className="g-back" onClick={() => router.push('/')}>返回</button>
+        <div className="g-title">
+          相遇
+          <i>STARLIGHT GACHA</i>
         </div>
+        <div className="g-coin">{wallet ? `${wallet.coins} 币` : '—'}</div>
+      </header>
 
-        <div className="body">
-          {!world && <div className="muted">先载入一个剧本。</div>}
+      <div className="g-body">
+        {!world && <div className="g-empty">先载入一个剧本。</div>}
 
-          {world && (
-            <>
-              <div className="muted" style={{ fontSize: 12, lineHeight: 1.9 }}>
-                每跑一回合攒 {world.coinPerTurn ?? 100} 抽卡币。单抽 {world.pullCost ?? 100}，十连 {world.tenPullCost ?? 900}，十连保底一个没拥有的番外。
-                还剩 {left.length} 个番外没抽到。
+        {world && (
+          <>
+            <div className="g-stage">
+              <div className="g-card">
+                <span className="g-corner">{left.length > 0 ? `${left.length} 未得` : '已收齐'}</span>
+                <div className="g-card-body">
+                  <div className="g-k">本期卡池</div>
+                  <div className="g-name">{world.title || '相遇'}</div>
+                  <div className="g-line" />
+                  <div className="g-desc">
+                    十连保底一个还没拥有的番外。<br />
+                    每跑一回合攒 {world.coinPerTurn ?? 100} 抽卡币。
+                  </div>
+                </div>
               </div>
+            </div>
 
-              <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-                <button className="btn" onClick={() => pull(1)} disabled={!wallet || wallet.coins < (world.pullCost ?? 100)}>
-                  单抽 · {world.pullCost ?? 100}
-                </button>
-                <button className="btn" onClick={() => pull(10)} disabled={!wallet || wallet.coins < (world.tenPullCost ?? 900)}>
-                  十连 · {world.tenPullCost ?? 900}
-                </button>
-              </div>
-
-              {msg && <div className="tip" style={{ marginTop: 12 }}>{msg}</div>}
+            <div className="g-foot">
+              {msg && <div className="g-msg">{msg}</div>}
 
               {results.length > 0 && (
-                <div style={{ marginTop: 18 }}>
-                  <div className="section-title">这一次</div>
-                  {results.map((r, i) => (
-                    <div className="ledger-bar" key={i}>
-                      <span>{r.kind === 'extra' ? '番外' : '礼物'}</span>
-                      <span>{r.name}</span>
-                      <span className="muted" style={{ marginLeft: 'auto' }}>{r.desc}</span>
-                    </div>
-                  ))}
+                <div className="g-results">
+                  <div className="g-rhead">这一次</div>
+                  <div className="g-grid">
+                    {results.map((r, i) => (
+                      <div className={`g-mini${r.kind === 'extra' ? ' rare' : ''}`} key={i}>
+                        <b>{r.kind === 'extra' ? '番外' : '礼物'}</b>
+                        <span>{r.name}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 
-              {!gifts.length && <div className="tip" style={{ marginTop: 14 }}>还没有礼物类物品，先去「剧本 → 玩法」加几件，或按「填入日常商品」。</div>}
-            </>
-          )}
-        </div>
+              <div className="g-acts">
+                <button
+                  className="g-pull"
+                  onClick={() => pull(1)}
+                  disabled={!wallet || wallet.coins < (world.pullCost ?? 100)}
+                >
+                  相遇一次
+                  <i>{world.pullCost ?? 100} 币</i>
+                </button>
+                <button
+                  className="g-pull ten"
+                  onClick={() => pull(10)}
+                  disabled={!wallet || wallet.coins < (world.tenPullCost ?? 900)}
+                >
+                  相遇十次
+                  <i>{world.tenPullCost ?? 900} 币</i>
+                </button>
+              </div>
+
+              {!gifts.length && (
+                <div className="g-empty">还没有礼物类物品，先去「剧本 → 玩法」加几件。</div>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </main>
   );

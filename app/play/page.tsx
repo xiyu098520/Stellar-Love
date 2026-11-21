@@ -23,6 +23,7 @@ import {
   loadWorld,
   newId,
   putSave,
+  saveSettings,
 } from '@/lib/store';
 import type {
   AffinityEntry,
@@ -286,6 +287,17 @@ function PlayInner() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [notifClosed, setNotifClosed] = useState(false);
   const [phoneNote, setPhoneNote] = useState<{ name: string; count: number } | null>(null);
+  /** 主线阅读式布局：随行动要带上的背包物品 */
+  const [attach, setAttach] = useState('');
+  const [itemOpen, setItemOpen] = useState(false);
+  const [modelOpen, setModelOpen] = useState(false);
+  const storyEndRef = useRef<HTMLDivElement | null>(null);
+
+  /** 主线阅读式：新内容落下来后贴到底部 */
+  useEffect(() => {
+    if (!save || save.kind !== 'main') return;
+    storyEndRef.current?.scrollIntoView({ block: 'end' });
+  }, [save?.turns.length, save?.id, save?.kind, busy]);
 
   useEffect(() => {
     (async () => {
@@ -1052,6 +1064,344 @@ function PlayInner() {
       : 0;
   const hasNotif = !!(invite || (phoneNote && phoneLeft > 0));
 
+  /* ---------- 主线：阅读式 ---------- */
+
+  if (save.kind === 'main') {
+    const storyProfiles = (settings?.profiles || []).filter(p => p.kind === 'story');
+    const activeStory = storyProfiles.find(p => p.id === settings?.active.story) || storyProfiles[0];
+    const bag = itemOpen && world ? loadWallet(save.worldId, world).inventory || {} : {};
+    const bagItems = Object.keys(bag)
+      .map(id => {
+        const it = (world?.items || []).find(x => x.id === id);
+        return it ? { ...it, count: bag[id] } : null;
+      })
+      .filter(Boolean) as { id: string; name: string; count: number }[];
+    const onStage = Array.from(
+      new Set(
+        (entries[entries.length - 1]?.turn.segments || [])
+          .map(s => (s.type === 'dialogue' ? s.who || '' : ''))
+          .filter(Boolean),
+      ),
+    );
+    const compose = (text: string) => {
+      const t = text.trim();
+      if (!t) return '';
+      return attach ? `${t.replace(/[，,。\s]+$/, '')}（带上${attach}）` : t;
+    };
+
+    return (
+      <main
+        className="m-main"
+        style={wall ? { backgroundImage: `url("${wall}")` } : undefined}
+      >
+        <div className="m-veil" />
+
+        <header className="m-top">
+          <button className="m-back" onClick={() => router.push('/')}>返回</button>
+          <div className="m-ch">
+            {lastEntryNo ? `第 ${Math.floor((lastEntryNo - 1) / CHAPTER_SIZE) + 1} 章` : '主线'}
+            <i>{lastEntryNo ? chapterLabel(lastEntryNo) : '尚未开始'}</i>
+          </div>
+          <div className="m-bar"><i style={{ width: `${progress}%` }} /></div>
+          <button className="m-model" onClick={() => setModelOpen(v => !v)}>
+            {activeStory?.name || '模型'}
+            <span>▾</span>
+          </button>
+          <button className="m-gear" aria-label="设置" onClick={() => router.push('/settings')}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6L17 7M7 17l-1.4 1.4" strokeLinecap="round" />
+            </svg>
+          </button>
+        </header>
+
+        {modelOpen && (
+          <div className="m-menu">
+            {storyProfiles.length ? (
+              storyProfiles.map(p => (
+                <button
+                  key={p.id}
+                  className={p.id === activeStory?.id ? 'on' : ''}
+                  onClick={() => {
+                    if (!settings) return;
+                    const next: Settings = {
+                      ...settings,
+                      active: { ...settings.active, story: p.id },
+                    };
+                    saveSettings(next);
+                    setSettings(next);
+                    setModelOpen(false);
+                  }}
+                >
+                  <b>{p.name || p.model || '未命名'}</b>
+                  <i>{p.model || '未填模型'}</i>
+                </button>
+              ))
+            ) : (
+              <div className="m-menu-empty">还没配正文接口，去设置里加。</div>
+            )}
+          </div>
+        )}
+
+        {hasNotif && !notifClosed && !inviteOpen && (
+          <div
+            className="m-notif"
+            onClick={() =>
+              invite ? setInviteOpen(true) : router.push(`/phone?save=${save.id}`)
+            }
+          >
+            <span className="tx">
+              <b>{invite ? invite.name : phoneNote?.name || '手机'}</b>
+              <span>{invite ? '想见你 · 个人线在等你' : `${phoneNote?.count || 0} 条新消息`}</span>
+            </span>
+            <span className="go">{invite ? '去看 ›' : '手机 ›'}</span>
+          </div>
+        )}
+
+        <div className="m-now">
+          <div className="when">
+            {save.state?.clock
+              ? `${save.state.clock.y}年${save.state.clock.m}月${save.state.clock.d}日`
+              : '时间未定'}
+            <small>{save.state?.time || ''}</small>
+          </div>
+          {save.state?.place && <div className="where">{save.state.place}</div>}
+          {onStage.length > 0 && (
+            <div className="cast">
+              在场 · {onStage.join('、')}
+            </div>
+          )}
+        </div>
+
+        <div className="m-story">
+          {!started && (
+            <div className="m-start">
+              <div className="k">MAIN STORY</div>
+              <div className="t">{world?.title || '剧本'}</div>
+              <div className="s">{world?.tagline || '第一幕，从这里开始'}</div>
+              <button onClick={begin} disabled={busy}>
+                {busy ? '正在开场……' : '开始'}
+              </button>
+            </div>
+          )}
+
+          {entries.map(({ turn: t }, i) =>
+            t.role === 'user' ? (
+              <div className="m-say me" key={i}>
+                <div className="m-tx">{t.text}</div>
+              </div>
+            ) : (
+              (t.segments || []).map((seg, k) => {
+                if (seg.type !== 'dialogue') {
+                  return <p className="m-narr" key={`${i}-${k}`}>{seg.text}</p>;
+                }
+                const c = seg.who ? charOf(seg.who) : undefined;
+                const key = `t${i}b${k}`;
+                const isLast = i === entries.length - 1;
+                return (
+                  <div className="m-say" key={`${i}-${k}`}>
+                    <span
+                      className="m-av"
+                      style={c?.avatar ? { backgroundImage: `url("${c.avatar}")` } : undefined}
+                    >
+                      {!c?.avatar && (seg.who || '？').slice(0, 1)}
+                    </span>
+                    <div className="m-body">
+                      <div className="m-who">{seg.who}</div>
+                      <div className="m-tx">{seg.text}</div>
+                      {isLast && (
+                        <div className="m-tools">
+                          {voiceProfile?.baseUrl && (
+                            <button
+                              className={speaking === key ? 'on' : ''}
+                              onClick={() => play(key, seg.text, seg.who || '', seg.tone, seg.ja)}
+                            >
+                              {speaking === key ? <IconStop /> : <IconPlay />}语音
+                            </button>
+                          )}
+                          {c && (
+                            <button
+                              className={clips[clipKey(c.id, seg.text)] ? 'on' : ''}
+                              onClick={() => toggleFavorite(key, c, seg.text)}
+                            >
+                              <IconBookmark on={!!clips[clipKey(c.id, seg.text)]} />
+                              {clips[clipKey(c.id, seg.text)] ? '已收藏' : '收藏'}
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            ),
+          )}
+          {busy && <div className="m-busy">……</div>}
+          <div ref={storyEndRef} />
+        </div>
+
+        <div className="m-dock">
+          {todoOpen && (
+            <div className="m-todo">
+              {todos.length ? (
+                todos.map(a => {
+                  const now = save.state?.clock ? clockValue(save.state.clock) : 0;
+                  const diff = clockValue(a.clock) - now;
+                  const soon = diff <= 120;
+                  return (
+                    <button key={a.id} disabled={!soon} onClick={() => goAppointment(a.id)}>
+                      <span>
+                        <b>{clockShort(a.clock)}</b> · {a.characterName}
+                        {a.place ? ` · ${a.place}` : ''}
+                      </span>
+                      <i>
+                        {soon ? '去赴约' : diff < 1440 ? '还有几小时' : `还有 ${Math.ceil(diff / 1440)} 天`}
+                      </i>
+                    </button>
+                  );
+                })
+              ) : (
+                <div className="m-empty">还没有约定。</div>
+              )}
+            </div>
+          )}
+
+          {dockMode === 'reply' && choices.length > 0 && (
+            <div className="m-opts">
+              {choices.map((c, i) => (
+                <div className={`m-opt${picked === i ? ' on' : ''}`} key={i}>
+                  <button
+                    className="t"
+                    disabled={busy}
+                    onClick={() => {
+                      setDraft(c);
+                      setPicked(i);
+                    }}
+                  >
+                    {c}
+                  </button>
+                  <button
+                    className="add"
+                    disabled={busy}
+                    onClick={() => {
+                      setDraft(d =>
+                        d.trim() ? `${d.replace(/[，,。\s]+$/, '')}，${c}` : c,
+                      );
+                      setPicked(i);
+                    }}
+                  >
+                    ＋
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="m-pills">
+            <button className={todoOpen ? 'on' : ''} onClick={() => setTodoOpen(v => !v)}>
+              待办 <i>{todoLabel}</i>
+            </button>
+            <button onClick={() => router.push(`/phone?save=${save.id}`)}>
+              手机{phoneLeft > 0 && <em>{phoneLeft}</em>}
+            </button>
+            <button
+              className={dockMode === 'reply' ? 'on' : ''}
+              onClick={() => setDockMode(m => (m === 'reply' ? 'none' : 'reply'))}
+            >
+              回复<i>{dockMode === 'reply' ? '⌃' : '⌄'}</i>
+            </button>
+          </div>
+
+          {attach && (
+            <div className="m-attach">
+              附 · {attach}
+              <button onClick={() => setAttach('')}>×</button>
+            </div>
+          )}
+
+          <div className="m-input">
+            <button
+              className={`m-plus${itemOpen ? ' on' : ''}`}
+              onClick={() => setItemOpen(v => !v)}
+              aria-label="背包"
+            >
+              ＋
+            </button>
+            <input
+              value={draft}
+              onChange={e => setDraft(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  const out = compose(draft);
+                  if (out) {
+                    send(out);
+                    setAttach('');
+                  }
+                }
+              }}
+              placeholder="写下你要做的事…"
+              disabled={busy}
+            />
+            <button
+              className="m-send"
+              disabled={busy}
+              onClick={() => {
+                const out = compose(draft);
+                if (!out) return;
+                send(out);
+                setAttach('');
+              }}
+            >
+              <IconSend />
+            </button>
+          </div>
+
+          {err && <div className="m-err">{err}</div>}
+        </div>
+
+        {itemOpen && (
+          <div className="m-sheet" onClick={() => setItemOpen(false)}>
+            <div className="m-sheet-body" onClick={e => e.stopPropagation()}>
+              <div className="k">背包</div>
+              {bagItems.length ? (
+                bagItems.map(it => (
+                  <button
+                    key={it.id}
+                    onClick={() => {
+                      setAttach(it.name);
+                      setItemOpen(false);
+                    }}
+                  >
+                    <b>{it.name}</b>
+                    <i>×{it.count}</i>
+                  </button>
+                ))
+              ) : (
+                <div className="m-empty">背包里还没有东西。</div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {invite && inviteOpen && (
+          <div className="m-mask" onClick={() => setInviteOpen(false)}>
+            <div className="m-modal" onClick={e => e.stopPropagation()}>
+              <div className="k">PERSONAL ROUTE · {invite.name}</div>
+              <div className="t">他想见你</div>
+              <div className="d">主线的信任到这儿就是极限了。再往下走，只能去他的个人线。</div>
+              <div className="acts">
+                <button className="primary" disabled={busy} onClick={acceptInvite}>去见他</button>
+                <button disabled={busy} onClick={postponeInvite}>改约 · 过两天</button>
+                <button disabled={busy} onClick={declineInvite}>婉拒</button>
+                <button className="quiet" onClick={() => setInviteOpen(false)}>再想想</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
+    );
+  }
+
   return (
     <main className="play-a">
       <div
@@ -1072,11 +1422,7 @@ function PlayInner() {
           返回
         </button>
         <span className="a-no">
-          {save.kind === 'main'
-            ? lastEntryNo
-              ? chapterLabel(lastEntryNo)
-              : '主线'
-            : '个人线'}
+          {save.kind === 'route' ? '个人线' : '番外'}
         </span>
         <div className="a-prog"><i style={{ width: `${progress}%` }} /></div>
         {save.kind === 'route' && (
@@ -1138,7 +1484,7 @@ function PlayInner() {
       >
         {!started && (
           <div className="a-center">
-            <div className="k">{save.kind === 'main' ? 'MAIN STORY' : 'PERSONAL ROUTE'}</div>
+            <div className="k">{save.kind === 'route' ? 'PERSONAL ROUTE' : 'EXTRA'}</div>
             <div className="t">{world?.title || '剧本'}</div>
             <div className="s">
               {save.kind === 'route'
