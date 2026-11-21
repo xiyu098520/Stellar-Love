@@ -58,6 +58,7 @@ export default function WorldPage() {
   const [evTab, setEvTab] = useState<EventEntry['kind']>('event');
   const [playTab, setPlayTab] = useState<'attr' | 'shop' | 'extra'>('attr');
   const [q, setQ] = useState('');
+  const [openRow, setOpenRow] = useState<string | null>(null);
   const [attrChar, setAttrChar] = useState('');
   const fileInput = useRef<HTMLInputElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -321,77 +322,112 @@ export default function WorldPage() {
   /* ---------- 列表页 ---------- */
 
   if (view === 'list') {
+    const live = worlds.find(x => x.id === activeId);
+    const rest = worlds.filter(x => x.id !== activeId);
+    const pad = (n: number) => String(n + 1).padStart(2, '0');
     return (
-      <main className="page world-a">
-        <div className="sheet a-sheet">
-          <div className="a-whead">
-            <button className="a-back" onClick={() => router.push('/')}>返回</button>
+      <main className="wr-stage">
+        <div className="wr-head">
+          <button className="wr-back" onClick={() => router.push('/')}>返回</button>
+          <div className="mid">
             <b>剧本</b>
-            <span>{worlds.length ? `${worlds.length} 个` : ''}</span>
+            <i>SCRIPT ARCHIVE</i>
           </div>
-
-          <div className="a-page">
-            {!worlds.length && (
-              <div className="a-empty">还没有剧本。新建一个，或导入以前导出的文件。</div>
-            )}
-
-            {worlds.map(x => (
-              <div className="a-wrow" key={x.id}>
-                <div className="a-row-title">
-                  <span>{x.title || '未命名剧本'}</span>
-                  {x.id === activeId && <span className="a-tag">使用中</span>}
-                </div>
-                <div className="a-row-meta">
-                  {[x.tagline, `${x.characters?.length || 0} 人`].filter(Boolean).join(' · ')}
-                </div>
-                <div className="a-row-actions">
-                  <button className="mini" onClick={() => openEdit(x.id)}>编辑</button>
-                  <button
-                    className="mini"
-                    disabled={x.id === activeId}
-                    onClick={() => {
-                      setActiveWorld(x.id);
-                      refresh();
-                      setMsg(`已切换到：${x.title}`);
-                    }}
-                  >
-                    {x.id === activeId ? '正在使用' : '使用'}
-                  </button>
-                  <button className="mini" onClick={() => exportWorld(x)}>导出</button>
-                  <button
-                    className="mini danger"
-                    onClick={() => {
-                      if (!confirm(`删除「${x.title}」？存档不会跟着删，但会找不到这个剧本。`)) return;
-                      deleteWorld(x.id);
-                      refresh();
-                    }}
-                  >
-                    删除
-                  </button>
-                </div>
-              </div>
-            ))}
-
-            <div className="a-import">
-              <button className="btn" onClick={createWorld}>新建</button>
-              <button className="btn ghost" onClick={() => fileInput.current?.click()}>导入</button>
-            </div>
-
-            <input
-              ref={fileInput}
-              type="file"
-              accept="application/json,.json"
-              hidden
-              onChange={e => {
-                const f = e.target.files?.[0];
-                if (f) importWorld(f);
-                e.target.value = '';
-              }}
-            />
-
-            {msg && <div className="a-empty" style={{ marginTop: 12 }}>{msg}</div>}
-          </div>
+          <div className="count">{worlds.length ? String(worlds.length).padStart(2, '0') : '—'}</div>
         </div>
+
+        <div className="wr-scroll">
+          {!worlds.length && (
+            <div className="wr-empty">还没有剧本。新建一个，或导入以前导出的文件。</div>
+          )}
+
+          {live && (
+            <div className="wr-hero">
+              <div className="art">
+                <span className="corner c1" /><span className="corner c2" />
+                <span className="corner c3" /><span className="corner c4" />
+                <div className="no">{pad(worlds.findIndex(x => x.id === live.id))}</div>
+                <div className="vtitle">{live.title || '未命名剧本'}</div>
+                <div className="stamp">使用中</div>
+              </div>
+              <div className="meta">
+                <span className="tag">CURRENT</span>
+                <span className="tagline">{live.tagline || '还没有写宣传语'}</span>
+                <span className="num">{live.characters?.length || 0} 人 · {live.blocks?.length || 0} 章</span>
+              </div>
+              <div className="btns">
+                <button className="go" onClick={() => openEdit(live.id)}>
+                  继续编辑 <em>ENTER</em>
+                </button>
+                <button className="exp" onClick={() => exportWorld(live)}>导出</button>
+              </div>
+            </div>
+          )}
+
+          {rest.length > 0 && (
+            <>
+              <div className="wr-sec"><b>其他剧本</b><i>OTHER SCRIPTS</i></div>
+              {rest.map(x => (
+                <div
+                  className={`wr-row ${openRow === x.id ? 'open' : ''}`}
+                  key={x.id}
+                  onClick={() => setOpenRow(openRow === x.id ? null : x.id)}
+                >
+                  <div className="thumb"><span>{(x.title || '未命名').slice(0, 1)}</span></div>
+                  <div className="info">
+                    <div className="t">{x.title || '未命名剧本'}</div>
+                    <div className="d">{x.tagline || '还没有写宣传语'}</div>
+                    <div className="m">{x.characters?.length || 0} 人 · {x.blocks?.length || 0} 章</div>
+                  </div>
+                  <span className="chev" />
+                  <div className="wr-acts" onClick={e => e.stopPropagation()}>
+                    <button onClick={() => openEdit(x.id)}>编辑</button>
+                    <button
+                      onClick={() => {
+                        setActiveWorld(x.id);
+                        refresh();
+                        setMsg(`已切换到：${x.title}`);
+                      }}
+                    >
+                      启用
+                    </button>
+                    <button onClick={() => exportWorld(x)}>导出</button>
+                    <button
+                      className="danger"
+                      onClick={() => {
+                        if (!confirm(`删除「${x.title}」？存档不会跟着删，但会找不到这个剧本。`)) return;
+                        deleteWorld(x.id);
+                        refresh();
+                        setMsg('已删除');
+                      }}
+                    >
+                      删除
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
+
+          {msg && <div className="wr-empty" style={{ marginTop: 12 }}>{msg}</div>}
+        </div>
+
+        <div className="wr-foot">
+          <button className="new" onClick={createWorld}>新建剧本</button>
+          <button className="imp" onClick={() => fileInput.current?.click()}>导入</button>
+        </div>
+
+        <input
+          ref={fileInput}
+          type="file"
+          accept="application/json,.json"
+          hidden
+          onChange={e => {
+            const f = e.target.files?.[0];
+            if (f) importWorld(f);
+            e.target.value = '';
+          }}
+        />
       </main>
     );
   }
