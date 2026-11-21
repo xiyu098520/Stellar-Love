@@ -391,7 +391,7 @@ export default function ApiSettingsPage() {
                     ))}
                   </select>
                 )}
-                <div className="tip">旁白、无名路人用这个音色。每个男主的音色在「人物」里单独填。</div>
+                <div className="tip">旁白、无名路人用这个音色。每个角色的音色在剧本的「人物」里单独填。</div>
               </div>
 
               <div className="field">

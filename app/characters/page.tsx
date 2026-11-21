@@ -216,6 +216,15 @@ export default function CharactersPage() {
                         />
                       </div>
                       <div className="field">
+                        <label>音色 ID</label>
+                        <input
+                          value={c.voiceId || ''}
+                          onChange={e => patch(c.id, { voiceId: e.target.value })}
+                          placeholder="留空就用接口页的默认音色"
+                        />
+                        <div className="tip">跟着这个角色走，存在剧本里。朗读他台词时用这个音色；音色列表在「设定 → 接口 → 语音」里拉取。</div>
+                      </div>
+                      <div className="field">
                         <label>个人资料</label>
                         <textarea
                           className="block-text"
