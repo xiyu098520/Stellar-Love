@@ -3163,3 +3163,401 @@ html:has(.story-a) body {
   transition: opacity .2s ease;
 }
 .scene-curtain.on i { opacity: 1; }
+
+/* =====================================================================
+   人物 · 人设编辑（游戏化，仅作用于 /characters）
+   ===================================================================== */
+.ch-stage {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  color: var(--a-ink);
+  font-family: var(--sans);
+  background: transparent;
+}
+.ch-stage::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(6, 8, 13, .62) 0%, rgba(6, 8, 13, .3) 38%, rgba(6, 8, 13, .5) 100%);
+}
+.ch-head {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: calc(14px + env(safe-area-inset-top)) 18px 8px;
+}
+.ch-back {
+  min-width: 54px;
+  padding: 4px 0;
+  text-align: left;
+  background: none;
+  border: 0;
+  font-size: 12px;
+  letter-spacing: .2em;
+  color: rgba(217, 188, 134, .9);
+  font-family: var(--sans);
+}
+.ch-head b {
+  flex: 1;
+  text-align: center;
+  text-indent: .3em;
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 21px;
+  letter-spacing: .3em;
+  color: #f1e9d8;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, .6);
+}
+.ch-head span {
+  min-width: 54px;
+  text-align: right;
+  font-size: 10px;
+  letter-spacing: .1em;
+  color: var(--a-dim);
+}
+.ch-roles {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  margin: 0 18px;
+  border-bottom: 1px solid rgba(217, 188, 134, .18);
+}
+.ch-roles button {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 0 11px;
+  background: none;
+  border: 0;
+  color: #8a8070;
+}
+.ch-roles button i {
+  font-style: normal;
+  font-size: 9px;
+  letter-spacing: .18em;
+  color: rgba(169, 155, 126, .75);
+}
+.ch-roles button span {
+  font-family: var(--serif);
+  font-size: 14px;
+  letter-spacing: .16em;
+}
+.ch-roles button em {
+  font-style: normal;
+  font-size: 8px;
+  letter-spacing: .2em;
+  color: rgba(169, 155, 126, .5);
+}
+.ch-roles button.on { color: #e9d6ae; }
+.ch-roles button.on em { color: rgba(217, 188, 134, .8); }
+.ch-roles button.on::after {
+  content: '';
+  position: absolute;
+  left: 18%;
+  right: 18%;
+  bottom: -1px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(217, 188, 134, .9), transparent);
+}
+.ch-scroll {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px 18px calc(30px + env(safe-area-inset-bottom));
+}
+.ch-note {
+  margin: 0 0 14px;
+  font-size: 11px;
+  line-height: 1.8;
+  letter-spacing: .04em;
+  color: #9b917e;
+}
+.ch-card {
+  margin-bottom: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, .08);
+  border-radius: 2px;
+  background: rgba(9, 13, 19, .46);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: border-color .2s ease, background .2s ease;
+}
+.ch-card.open {
+  border-color: rgba(217, 188, 134, .3);
+  background: rgba(9, 13, 19, .62);
+}
+.ch-sec {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px 6px;
+}
+.ch-sec i {
+  font-style: normal;
+  font-size: 10px;
+  letter-spacing: .16em;
+  color: rgba(217, 188, 134, .8);
+}
+.ch-sec span {
+  font-size: 9px;
+  letter-spacing: .26em;
+  color: #8d8371;
+}
+.ch-sec em {
+  margin-left: auto;
+  font-style: normal;
+  font-family: var(--serif);
+  font-size: 15px;
+  letter-spacing: .14em;
+  color: #efe6d4;
+}
+.ch-field {
+  display: block;
+  padding: 10px 16px 13px;
+}
+.ch-field > span {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 10px;
+  letter-spacing: .18em;
+  color: #a99b7e;
+}
+.ch-field input,
+.ch-field textarea,
+.ch-field select {
+  width: 100%;
+  border-radius: 0;
+  outline: none;
+  color: #f0e9db;
+  font-family: var(--sans);
+  font-size: 16px;
+}
+.ch-field input {
+  padding: 7px 0;
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, .13);
+  background: transparent;
+}
+.ch-field textarea {
+  min-height: 118px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, .1);
+  background: rgba(255, 255, 255, .015);
+  font-size: 14px;
+  line-height: 1.75;
+  resize: vertical;
+}
+.ch-field select {
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, .12);
+  background: rgba(255, 255, 255, .04);
+  font-size: 14px;
+}
+.ch-field input::placeholder,
+.ch-field textarea::placeholder { color: rgba(139, 133, 120, .7); }
+.ch-field input:focus,
+.ch-field textarea:focus,
+.ch-field select:focus { border-color: rgba(217, 188, 134, .66); }
+.ch-tip {
+  display: block;
+  margin-top: 7px;
+  font-style: normal;
+  font-size: 10px;
+  line-height: 1.7;
+  letter-spacing: .02em;
+  color: #857b69;
+}
+.ch-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: none;
+  border: 0;
+  color: inherit;
+  text-align: left;
+}
+.ch-seal {
+  flex: 0 0 38px;
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid rgba(217, 188, 134, .35);
+  font-family: var(--serif);
+  font-size: 16px;
+  color: #e3cfaa;
+  background: rgba(217, 188, 134, .05);
+}
+.ch-seal img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.ch-name {
+  flex: 0 1 auto;
+  font-family: var(--serif);
+  font-size: 17px;
+  letter-spacing: .1em;
+  color: #f2ead9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ch-ident {
+  flex: 1;
+  text-align: right;
+  font-size: 10px;
+  letter-spacing: .05em;
+  color: #8f8573;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ch-no {
+  min-width: 18px;
+  text-align: right;
+  font-style: normal;
+  font-size: 9px;
+  letter-spacing: .14em;
+  color: rgba(217, 188, 134, .55);
+}
+.ch-panel {
+  padding-bottom: 4px;
+  border-top: 1px solid rgba(255, 255, 255, .06);
+}
+.ch-portrait {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px 6px;
+}
+.ch-slot {
+  position: relative;
+  flex: 0 0 76px;
+  width: 76px;
+  height: 100px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  overflow: hidden;
+  border: 1px dashed rgba(217, 188, 134, .4);
+  background: rgba(217, 188, 134, .04);
+}
+.ch-slot input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.ch-slot img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.ch-slot i {
+  font-style: normal;
+  font-size: 20px;
+  line-height: 1;
+  color: rgba(217, 188, 134, .8);
+}
+.ch-slot span {
+  font-size: 9px;
+  letter-spacing: .14em;
+  color: #a99b7e;
+}
+.ch-portrait-side {
+  flex: 1;
+  font-size: 10px;
+  line-height: 1.8;
+  letter-spacing: .03em;
+  color: #857b69;
+}
+.ch-portrait-side b {
+  display: block;
+  margin-bottom: 4px;
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 15px;
+  letter-spacing: .12em;
+  color: #d8cbb2;
+}
+.ch-remove {
+  display: block;
+  margin-top: 8px;
+  padding: 0;
+  background: none;
+  border: 0;
+  font-family: var(--sans);
+  font-size: 10px;
+  letter-spacing: .1em;
+  color: #a06a5e;
+}
+.ch-add {
+  width: 100%;
+  margin-top: 4px;
+  padding: 14px;
+  border: 1px dashed rgba(217, 188, 134, .38);
+  background: rgba(217, 188, 134, .04);
+  color: #d9bc86;
+  font-family: var(--sans);
+  font-size: 12px;
+  letter-spacing: .16em;
+}
+.ch-del {
+  display: block;
+  margin: 14px 16px 2px auto;
+  padding: 4px 0;
+  background: none;
+  border: 0;
+  font-family: var(--sans);
+  font-size: 11px;
+  letter-spacing: .12em;
+  color: #a06a5e;
+}
+.ch-empty {
+  padding: 30px 0;
+  text-align: center;
+  font-size: 11px;
+  letter-spacing: .1em;
+  color: #8d8371;
+}
+.ch-check {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 12px 16px 2px;
+  font-size: 13px;
+  color: #cfc3ad;
+}
+.ch-check input {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  border: 1px solid rgba(217, 188, 134, .5);
+  background: none;
+}
+.ch-check input:checked {
+  background: rgba(217, 188, 134, .85);
+  box-shadow: inset 0 0 0 3px #10151d;
+}
