@@ -118,7 +118,10 @@ export default function StoryPage() {
   return (
     <main className="story-a">
       <div className="s-bg" />
+      <div className="s-beam" />
       <div className="s-veil" />
+      <div className="s-grain" />
+      <div className="s-watermark">STORY</div>
 
       <nav className="s-nav">
         <button className="s-back" onClick={() => router.push('/')} aria-label="返回">
@@ -151,7 +154,12 @@ export default function StoryPage() {
                   <span>
                     {save
                       ? total
-                        ? `${current.done} / ${CHAPTER_SIZE} 回合 · ${running ? '进行中' : '已完成'}`
+                        ? (
+                            <>
+                              {current.done} / {CHAPTER_SIZE} 回合 ·{' '}
+                              <i>{running ? '进行中' : '已完成'}</i>
+                            </>
+                          )
                         : '还没有开场'
                       : '还没有开始主线'}
                   </span>
@@ -193,9 +201,11 @@ export default function StoryPage() {
                         </span>
                       </span>
                       <span className="s-ch-side">
+                        {info.done === CHAPTER_SIZE && (
+                          <em className={active ? '' : 'done'}>已完成</em>
+                        )}
                         {active && info.done === 0 && <em>未开始</em>}
                         {active && info.done > 0 && info.done < CHAPTER_SIZE && <em>进行中</em>}
-                        {active && info.done === CHAPTER_SIZE && <em>已完成</em>}
                         <Chevron />
                       </span>
                     </button>
