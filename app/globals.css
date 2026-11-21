@@ -1712,6 +1712,7 @@ body { background: transparent; }
 .world-a .a-sheet {
   min-height: 0;
   height: 100dvh;
+  padding: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;

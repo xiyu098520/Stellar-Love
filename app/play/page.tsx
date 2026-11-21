@@ -987,7 +987,10 @@ function PlayInner() {
   const todoLabel = apptInfo
     ? `${clockShort(apptInfo.appt.clock)} · ${apptInfo.appt.characterName}`
     : '没有约定';
-  const progress = lastEntryNo ? (((lastEntryNo - 1) % CHAPTER_SIZE) + 1) / CHAPTER_SIZE : 0;
+  const progress =
+    lastEntryNo && save.kind === 'main'
+      ? ((((lastEntryNo - 1) % CHAPTER_SIZE) + 1) / CHAPTER_SIZE) * 100
+      : 0;
   const hasNotif = !!(invite || (phoneNote && phoneLeft > 0));
 
   return (
@@ -1008,9 +1011,13 @@ function PlayInner() {
           返回
         </button>
         <span className="a-no">
-          {lastEntryNo ? chapterLabel(lastEntryNo) : save.kind === 'main' ? '主线' : '个人线'}
+          {save.kind === 'main'
+            ? lastEntryNo
+              ? chapterLabel(lastEntryNo)
+              : '主线'
+            : '个人线'}
         </span>
-        <div className="a-prog"><i style={{ width: `${progress * 100}%` }} /></div>
+        <div className="a-prog"><i style={{ width: `${progress}%` }} /></div>
         {save.kind === 'route' && (
           <button className="a-back" onClick={exitRoute}>回主线</button>
         )}
