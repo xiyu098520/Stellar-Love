@@ -920,10 +920,21 @@ export default function WorldPage() {
               {playTab === 'shop' && (
               <>
               <div className="section-title">物品与商店</div>
+              <div className="shop-bar">
+                <input
+                  value={q}
+                  onChange={e => setQ(e.target.value)}
+                  placeholder="搜索物品 / 店铺"
+                />
+                <button className="mini" onClick={addItem}>＋</button>
+              </div>
               <div className="muted" style={{ fontSize: 12, lineHeight: 1.9 }}>
                 商店按「店铺」分组。有纪念意义的选礼物，会记进他收到的东西；奶茶、便当这类选日常，只进账本。
               </div>
-              {(w.items || []).map((it, i) => (
+              {(w.items || []).map((it, i) => {
+                const k = q.trim().toLowerCase();
+                if (k && !(`${it.name} ${it.shop || ''}`).toLowerCase().includes(k)) return null;
+                return (
                 <div className="item-card" key={it.id}>
                   <div className="item-line">
                     <input
@@ -959,9 +970,12 @@ export default function WorldPage() {
                     </select>
                   </div>
                 </div>
-              ))}
+                );
+              })}
+              {(w.items || []).length === 0 && (
+                <div className="muted" style={{ fontSize: 12, marginTop: 10 }}>还没有商品，点右上角 ＋ 添加。</div>
+              )}
               <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-                <button className="mini" onClick={addItem}>＋ 添加物品</button>
                 <button className="mini" onClick={seedItems}>填入日常商品</button>
               </div>
               </>
