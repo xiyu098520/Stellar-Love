@@ -216,8 +216,8 @@ export default function CharactersPage() {
           <>
             <p className="ch-note">
               {role === 'lead'
-                ? '主角＝能开个人线的人，有好感度，会涨会掉。'
-                : 'NPC＝按关键词或地区出现的人，没有好感，不抢主线。'}
+                ? '主角＝能开个人线的人，主线算信任，个人线算羁绊。'
+                : 'NPC＝按关键词或地区出现的人，没有数值，不抢主线。'}
             </p>
 
             {list.map((c, i) => (

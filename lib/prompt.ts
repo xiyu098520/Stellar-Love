@@ -1,7 +1,7 @@
 'use client';
 
 import type { ChatMessage } from './llm';
-import { emptyState, stageOf } from './affinity';
+import { emptyState, stageOf, trustStageOf } from './affinity';
 import { chapterLabel } from './chapter';
 import { clockText } from './clock';
 import type { Character, Clock, GameState, Save, Turn, World, WorldBlock } from './types';
@@ -29,7 +29,7 @@ const JA_RULE = `
 每条 dialogue 额外给一个 "ja"：这句台词的自然日文口语（动漫对话那种，不要敬语腔，不要逐字直译），称呼、人称和情绪跟原句一致，ja 里不要写方括号标记。narration 不要 ja，text 照旧用中文。`;
 
 /** 结算规则：只允许报这几个档，理由必须具体 */
-const SETTLE_RULE = `【结算】
+const ROUTE_SETTLE_RULE = `【结算】
 每回合结尾在 settle 里申报一次，不许省略。
 who：本回合真正跟她有互动的那个男主角，用人物表里的名字；只是远远看见、没说话，就不算，写 ""。
 delta：只能取 0、1、3、5、8、-1、-2、-4、-6、-8 之一。
@@ -61,14 +61,57 @@ attrs：这一回合真正变动的自定义数值，写成数组；没有变动
   钱花出去、赚进来，都要报；不许直接改写余额，只报增减。
 同一件事只算一次，不要反复加。`;
 
+/** 主线结算：只算信任，不算心动 */
+const MAIN_SETTLE_RULE = `【结算】
+每回合结尾在 settle 里申报一次，不许省略。
+who：本回合真正跟她有互动的那个男主角，用人物表里的名字；只是远远看见、没说话，就不算，写 ""。
+delta：只能取 0、1、3、5、8、-1、-2、-4、-6、-8 之一。
+  1 ＝ 多说了一句实情，或提醒了她一句。
+  3 ＝ 把要紧的消息交给她，或替她挡了一次麻烦。
+  5 ＝ 在别人面前站到她这边，或说出自己真正的立场。
+  8 ＝ 把不能外传的东西告诉她，或为她担了风险。
+  -1 ＝ 敷衍了一句，她听得出来。
+  -2 ＝ 她问的事，他绕开了。
+  -4 ＝ 她托付的事，他先顾了自己。
+  -6 ＝ 答应她的事没做到，也没解释。
+  -8 ＝ 他看见你跟别的男人走得近（只能是没有名字的人，绝不能是另一个男主角）。
+  这里报的是信任，不是心动：数值再高也不写情话、不写告白。
+  什么都没发生就写 0。
+reason：一句话说明为什么，写具体的事，不写"气氛很好"。
+minutes：这一回合过去了多少分钟，只填数字，不写时刻。
+  几句闲话 5 到 15；一顿饭 45 到 90；赶一趟路 20 到 90；睡一觉 360 到 540；最多 720。
+  没干别的事就填 15。不要写「傍晚」「第二天」这类字眼，钟由程序走。
+money：这一段真的发生的金钱变化，正数是收入，负数是支出，只填数字。
+  工资、转账、买东西、付房租、收红包都算；没发生就写 0。金额要符合这个人的收入和一贯的消费方式，不许凭空给大额。
+moneyReason：一句话说清这笔钱怎么回事，比如「便利店夜班工资」「他转来的 200」「买了一杯手冲」。
+phone：这一回合有没有人在手机里找她。最多一条，比如 [{"who":"砂金","text":"在忙吗"}]。
+  只在他不在面前出现、或这件事本来就适合发消息时用；没发生就写 []。不要替她回消息。
+bought：这一段她在剧情里真的买下、带在身上的东西，写成名字数组，比如 ["手冲咖啡"]；没有就写 []。
+  只写她留下的东西；吃掉的、用完的、送给别人的不写。钱那边照常报支出。
+attrs：这一回合真正变动的自定义数值，写成数组；没有变动就写 []。
+  who 留空 = 你的数值；填人物名 = 那个人的数值。
+  name 必须用【数值】里给出的原名字，不许自己起新名字。
+  钱花出去、赚进来，都要报；不许直接改写余额，只报增减。
+同一件事只算一次，不要反复加。`;
+
+/** 主线是公开舞台：男主之间互不知情，暧昧留在个人线 */
+const MAIN_ISOLATION = `【主线 · 公开场合】
+这一场是公开的、多人同台的场面。
+- 几位男主角各有各的目标，彼此不熟识，也不清楚对方和你私下怎么相处；除非剧情明确需要协作，不主动搭话，也不发展私交。
+- 不打听、不提起你和别的男人的私事，不暗示他们互相认识，也不替别人转述。
+- 和你之间停在共事、交换情报、立场碰撞、互相试探。信任高只代表他更肯说真话、更愿意把要紧的事交给你，不代表恋爱。
+- 你来试探、说暧昧的话、靠得太近，他可以避开、转开话题、保持距离，或露出一瞬意外，然后把话拉回手上的事。不要顺势推进。
+- 不写情话、告白、牵手、拥抱、亲吻。`;
+
 /** 主线：没有章节、没有终点，靠一条核心线索一直往下接；个人线只写两个人 */
 function chapterText(world: World, save: Save): string {
   if (save.kind === 'route') {
     return [
       '【个人线】',
-      '这条线里只有你和他，没有主线任务，也没有别人来打断。',
+      '这条线里只有你和他，没有主线任务，也没有别人来打断；别的男主角不存在，也不要提起。',
+      '这条线里发生的事不会回到主线，也不会让别的男主角知道；反过来，你只记得主线里和他公开层面的相处。',
       '时间一直往前，不用急着收尾；每一次见面都可以比上一次更近一点。',
-      '好感按现在的数值走，不要硬压回 30，也不要凭空跳到下一档。',
+      '这里报的数值是羁绊，按现在的数值走，不要硬压回 30，也不要凭空跳到下一档。',
     ].join('\n');
   }
   const core = (world.outline || '').trim();
@@ -80,8 +123,8 @@ function chapterText(world: World, save: Save): string {
       : '还没有给出核心线索：从世界观和开局里自己找出一个能长期追下去的事，把它当成主线核心，不要凭空结束它。',
     '不要写「第几章」「本章完」这类字样，也不要在正文里宣告阶段结束。',
     '需要换地方、换日子的时候，让事情自己把场景带过去：一件办完了，下一件自然浮上来。',
-    '主线是公开面：不管好感多高，他在街上、在公司、在别人面前只表现到熟识——不牵手、不拥抱、不亲吻。私人时间留给个人线。',
-    '主线里好感最多推到 30；再往上的升温只能在个人线里发生。',
+    '主线是公开面：不管信任多高，他在街上、在公司、在别人面前只表现到熟识——不牵手、不拥抱、不亲吻。私人时间留给个人线。',
+    '主线里的数值是信任，不是恋爱进度：信任再高，也只等于更肯说真话、更愿意把要紧的事交给你，不会自己变成恋爱。',
   ].join('\n');
 }
 
@@ -103,6 +146,15 @@ const STAGE_HINT: Record<string, string> = {
   熟: '会自己找由头见你，有一点不承认的占有欲。',
   私交: '已经说破，会在意你跟谁在一起，也会明着护你。',
   全心: '不再掂量，把你放在他自己前面。',
+};
+
+/** 主线的信任到了哪一档，态度怎么变；只说分寸，不说恋爱 */
+const TRUST_HINT: Record<string, string> = {
+  戒备: '客气，话留三分，不交底。',
+  公事: '只谈手上的事，肯听，但不主动多说。',
+  信任: '肯把一部分实情告诉你，遇事会想到你。',
+  交心: '自己的难处肯说，也肯替你担事。',
+  托付: '把最要紧的东西交到你手上，但不越界。',
 };
 
 function recentText(save: Save): { recent: string; place: string } {
@@ -336,12 +388,15 @@ function stateText(world: World, save: Save): string {
   const rows = Object.entries(st.affinity || {}).map(([id, v]) => {
     const c = world.characters.find(x => x.id === id);
     const name = c?.name || id;
-    const shown = save.kind === 'main' ? Math.min(30, v) : v;
-    const stage = stageOf(shown);
+    const isMain = save.kind === 'main';
+    const shown = isMain ? Math.min(100, v) : v;
+    const stage = isMain ? trustStageOf(shown) : stageOf(shown);
+    const hint = isMain ? TRUST_HINT[stage] : STAGE_HINT[stage];
+    const tag = isMain ? '信任' : '羁绊';
     const extra = (c?.attrs || [])
       .map(a => `${a.name} ${st.charAttrs?.[id]?.[a.id] ?? a.init}`)
       .join('，');
-    return `- ${name}：${shown}（${stage}）${STAGE_HINT[stage] || ''}${extra ? `｜${extra}` : ''}`;
+    return `- ${name} · ${tag}：${shown}（${stage}）${hint || ''}${extra ? `｜${extra}` : ''}`;
   });
   const mine = (world.attrs || [])
     .filter(a => a.name.trim())
@@ -401,12 +456,14 @@ export function buildSystem(world: World, save: Save, lang: 'zh' | 'ja' = 'zh'):
     );
   });
 
+  const isRoute = save.kind === 'route';
+
   return `你是一款中文乙女向恋爱游戏的叙述者。你负责写这一回合的场面：旁白、对白、她的选择。玩家是女主角，用「你」称呼她。
 
 【玩法】
-${save.kind === 'route'
+${isRoute
   ? '这是某个人的个人线：只写这一个男主角和她的相处，其他男主角不在场、也不会被提及姓名。'
-  : '这是主线：四个男主角都可以出现，但每一场只写其中一个；其他人在场也只是没有名字的背景。'}
+  : '这是主线：男主角都可以出现，但每一场只写其中一个；其他人在场也只是没有名字的背景。'}
 
 【世界观】
 ${blocksText(world, save)}
@@ -436,9 +493,9 @@ ${attrDefsText(world) ? `\n${attrDefsText(world)}` : ''}
 
 ${chapterText(world, save)}
 
-${intimacyText()}
+${isRoute ? intimacyText() : MAIN_ISOLATION}
 
-${SETTLE_RULE}
+${isRoute ? ROUTE_SETTLE_RULE : MAIN_SETTLE_RULE}
 
 【输出】
 ${FORMAT}${lang === 'ja' ? JA_RULE : ''}`;
@@ -454,13 +511,54 @@ export function flatten(t: Turn): string {
   return t.text;
 }
 
-export function buildMessages(world: World, save: Save, lang: 'zh' | 'ja' = 'zh'): ChatMessage[] {
+/** 这一场在场的是谁：先看她这句话里点了谁，再看上一个回合记下的人 */
+export function sceneLeadOf(world: World, save: Save): string | undefined {
+  if (save.kind === 'route') return save.routeOf;
+  const input = lastUserText(save);
+  const named = world.characters.find(
+    c => c.role !== 'npc' && c.name.trim() && input.includes(c.name.trim()),
+  );
+  if (named) return named.id;
+  for (let i = save.turns.length - 1; i >= 0; i--) {
+    const t = save.turns[i];
+    if (t.role === 'assistant' && t.with) return t.with;
+  }
+  return undefined;
+}
+
+/** 没有标明在场者的回合按公开场面处理；标了别人的，不带进这一场 */
+function belongsToScene(t: Turn, lead?: string): boolean {
+  if (!lead || !t.with) return true;
+  return t.with === lead;
+}
+
+/** 个人线开局时，把他和她在主线公开层面的经过带几条过来 */
+function publicRecap(main: Save | undefined, cid: string | null): string {
+  if (!main || !cid) return '';
+  const assists = main.turns.filter(t => t.role === 'assistant');
+  const sums = new Map((main.summaries || []).map(s => [s.turn, s.text]));
+  const lines: string[] = [];
+  assists.forEach((t, i) => {
+    if (t.with !== cid) return;
+    const s = sums.get(i + 1);
+    if (s) lines.push(`- ${s}`);
+  });
+  return lines.slice(-5).join('\n');
+}
+
+export function buildMessages(
+  world: World,
+  save: Save,
+  lang: 'zh' | 'ja' = 'zh',
+  parentMain?: Save,
+): ChatMessage[] {
   const system = buildSystem(world, save, lang);
   const history: ChatMessage[] = [];
   const memory: string[] = [];
   const sums = new Map((save.summaries || []).map(s => [s.turn, s.text]));
   const total = save.turns.filter(t => t.role === 'assistant').length;
   const cut = Math.max(0, total - KEEP_ROUNDS);
+  const lead = sceneLeadOf(world, save);
   let no = 0;
 
   for (const t of save.turns) {
@@ -468,6 +566,7 @@ export function buildMessages(world: World, save: Save, lang: 'zh' | 'ja' = 'zh'
     if (cut > 0 && no <= cut) {
       // 已经滑出窗口：有摘要就只发摘要，没有就用一小截原文兜底
       if (t.role === 'assistant') {
+        if (!belongsToScene(t, lead)) continue;
         const s = sums.get(no);
         const label = chapterLabel(no);
         memory.push(s ? `- ${label}：${s}` : `- ${label}：${flatten(t).slice(0, 160)}`);
@@ -476,6 +575,8 @@ export function buildMessages(world: World, save: Save, lang: 'zh' | 'ja' = 'zh'
       }
       continue;
     }
+    // 别的男主角的私人场面，不带进这一场
+    if (t.role === 'assistant' && !belongsToScene(t, lead)) continue;
     history.push({ role: t.role, content: flatten(t) });
   }
 
@@ -496,9 +597,19 @@ export function buildMessages(world: World, save: Save, lang: 'zh' | 'ja' = 'zh'
     }
   }
 
-  const memo = memory.length
-    ? `\n\n【更早的经过】\n前面几回合已经滑出原文窗口，下面是当时留下的事件摘要。钱、礼物、约定、称呼都在里面，接着它们写，不要重新问已经发生过的事。\n${memory.join('\n')}`
-    : '';
+  const parts: string[] = [];
+  const recap = save.kind === 'route' ? publicRecap(parentMain, save.routeOf || null) : '';
+  if (recap) {
+    parts.push(
+      `【你们在主线里一起经历过的事】\n这些只有公开层面的事，发生在主线里；你们私下怎么相处不在其中，也不要主动提起。\n${recap}`,
+    );
+  }
+  if (memory.length) {
+    parts.push(
+      `【更早的经过】\n前面几回合已经滑出原文窗口，下面是当时留下的事件摘要。钱、礼物、约定、称呼都在里面，接着它们写，不要重新问已经发生过的事。\n${memory.join('\n')}`,
+    );
+  }
+  const memo = parts.length ? `\n\n${parts.join('\n\n')}` : '';
 
   return [{ role: 'system', content: system + memo }, ...history];
 }

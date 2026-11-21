@@ -4,7 +4,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { chat, parseJSON } from '@/lib/llm';
 import { activeBlocks, buildMessages, buildSummaryMessages, touchHits } from '@/lib/prompt';
-import { applyDelta, clampAttr, emptyState, seedState, snapDelta, stageOf } from '@/lib/affinity';
+import { applyDelta, clampAttr, emptyState, seedState, snapDelta, stageOf, trustStageOf } from '@/lib/affinity';
 import { advance, clockShort, clockText, clockValue, initClock } from '@/lib/clock';
 import { CHAPTER_SIZE, chapterLabel, chapterTurns, numberedTurns } from '@/lib/chapter';
 import { makeRouteSave } from '@/lib/routes';
@@ -158,9 +158,7 @@ function applySettle(
     const c = world.characters.find(x => x.name === who || x.id === who);
     const id = c?.id || `unknown:${who}`;
     const before = next.affinity[id] ?? 0;
-    const raw = applyDelta(before, delta);
-    // 主线里好感最多推到 30，再往上的升温留给个人线；已经更高的不回落
-    const after = isMain && delta > 0 ? Math.min(Math.max(30, before), raw) : raw;
+    const after = applyDelta(before, delta);
     next.affinity[id] = after;
     push({
       characterId: id,
@@ -169,7 +167,7 @@ function applySettle(
       reason: (settle?.reason || '').trim() || '（没有写理由）',
       before,
       after,
-      stage: stageOf(after),
+      stage: isMain ? trustStageOf(after) : stageOf(after),
       kind: 'affinity',
     });
   }
@@ -272,7 +270,7 @@ function PlayInner() {
   const [clips, setClips] = useState<Record<string, VoiceClip>>({});
   /** 钱包跨存档共用，进页面时读一次，花完再写回 */
   const [money, setMoney] = useState(0);
-  /** 主线好感到了 30，这一回合出现邀请 */
+  /** 主线信任到了 30，这一回合出现邀请 */
   const [invite, setInvite] = useState<Character | null>(null);
   /** 手机里还没推进剧情的条数 */
   const [phoneLeft, setPhoneLeft] = useState(0);
@@ -547,7 +545,14 @@ function PlayInner() {
           ...touched,
           state: seedState(world, touched.state || emptyState()),
         };
-        const messages = buildMessages(world, seeded, voiceProfile?.lang === 'ja' ? 'ja' : 'zh');
+        const messages = buildMessages(
+          world,
+          seeded,
+          voiceProfile?.lang === 'ja' ? 'ja' : 'zh',
+          seeded.kind === 'route' && seeded.parentId
+            ? (await getSave(seeded.parentId)) || undefined
+            : undefined,
+        );
         const storyApi = activeProfile(settings, 'story');
         const parseOut = (s: string): ModelOut | null => {
           try {
@@ -601,6 +606,10 @@ function PlayInner() {
         };
         if (out?.place) state.place = out.place;
 
+        const settleWho = (out?.settle?.who || '').trim();
+        const settleChar = settleWho
+          ? world.characters.find(x => x.name === settleWho || x.id === settleWho)
+          : undefined;
         const turn: Turn = {
           role: 'assistant',
           text: segments.map(s => s.text).join('\n'),
@@ -608,6 +617,8 @@ function PlayInner() {
           choices: (out?.choices || []).slice(0, 4),
           time: state.time,
           place: out?.place,
+          // 记下这一回合在场的是谁，主线记忆好按人分片
+          with: nextSave.kind === 'route' ? nextSave.routeOf : settleChar?.id,
         };
 
         const settled = applySettle(
@@ -884,7 +895,7 @@ function PlayInner() {
     );
   }
 
-  /** 个人线回到主线：时间往前走，好感带回去；这段剧情本身留在个人线里 */
+  /** 个人线回到主线：时间往前走；这段剧情和羁绊都留在个人线里 */
   async function exitRoute() {
     if (!save || save.kind !== 'route') return;
     if (!confirm('回主线？这条个人线会留在这里，随时可以回来。回主线后，这里发生的事不会被提起。')) return;
@@ -902,12 +913,7 @@ function PlayInner() {
             clock: clock || main.state?.clock,
             time: clock ? clockText(clock) : main.state?.time,
             attrs: save.state?.attrs ?? main.state?.attrs,
-            affinity: {
-              ...(main.state?.affinity || {}),
-              ...(rid && save.state?.affinity?.[rid] !== undefined
-                ? { [rid]: save.state.affinity[rid] }
-                : {}),
-            },
+            // 个人线涨的是羁绊，留在个人线；主线的信任不跟着变
             charAttrs: {
               ...(main.state?.charAttrs || {}),
               ...(rid && save.state?.charAttrs?.[rid]
@@ -1265,7 +1271,7 @@ function PlayInner() {
           <div className="a-modal" onClick={e => e.stopPropagation()}>
             <div className="k">PERSONAL ROUTE · {invite.name}</div>
             <div className="t">他想见你</div>
-            <div className="d">主线的好感到这儿到顶了。再往下走，只能是个人线里的那一步。</div>
+            <div className="d">主线的信任到这儿就是极限了。再往下走，只能去他的个人线。</div>
             <div className="a-acts">
               <button className="primary" disabled={busy} onClick={acceptInvite}>
                 去见他

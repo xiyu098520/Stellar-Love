@@ -77,7 +77,11 @@ export function memoriesOf(opts: {
     for (const sum of save.summaries || []) {
       const turn = assists[sum.turn - 1];
       if (!turn) continue;
-      if (!own && name && !turn.text.includes(name)) continue;
+      // 主线已标了在场的人就按标；老存档没标的，退回按正文里有没有名字判断
+      if (!own) {
+        const mine = turn.with ? turn.with === character.id : !!(name && turn.text.includes(name));
+        if (!mine) continue;
+      }
       const when = parseWhen(turn.time);
       const text = (sum.text || '').trim();
       if (!text) continue;

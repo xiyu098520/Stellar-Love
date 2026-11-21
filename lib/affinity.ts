@@ -9,6 +9,21 @@ export const STAGES = [
   { min: 100, name: '全心' },
 ];
 
+/** 主线里的数值是信任，不是恋爱进度 */
+export const TRUST_STAGES = [
+  { min: 0, name: '戒备' },
+  { min: 20, name: '公事' },
+  { min: 45, name: '信任' },
+  { min: 70, name: '交心' },
+  { min: 90, name: '托付' },
+];
+
+export function trustStageOf(v: number): string {
+  let name = TRUST_STAGES[0].name;
+  for (const s of TRUST_STAGES) if (v >= s.min) name = s.name;
+  return name;
+}
+
 export function stageOf(v: number): string {
   let name = STAGES[0].name;
   for (const s of STAGES) if (v >= s.min) name = s.name;

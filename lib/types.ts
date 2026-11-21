@@ -10,6 +10,8 @@ export type Turn = {
   choices?: string[];
   time?: string;
   place?: string;
+  /** 这一回合真正在场的男主角 id；用来把主线记忆按人分片 */
+  with?: string;
 };
 
 /** 玩家自己 */

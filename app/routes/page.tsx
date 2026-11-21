@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { emptyState, stageOf } from '@/lib/affinity';
+import { emptyState, trustStageOf } from '@/lib/affinity';
 import { clockText, initClock } from '@/lib/clock';
 import { makeRouteSave } from '@/lib/routes';
 import { listSaves, loadWorld, newId, putSave } from '@/lib/store';
@@ -67,13 +67,13 @@ export default function RoutesPage() {
           {loaded && !world && <div className="muted">还没有剧本。</div>}
 
           {loaded && world && !main && (
-            <div className="muted">还没有主线。先在「恋歌」里开一份主线，好感到了 30 才能进个人线。</div>
+            <div className="muted">还没有主线。先在「恋歌」里开一份主线，信任到了 30 才能进个人线。</div>
           )}
 
           {loaded && world && main && (
             <>
               <div className="muted" style={{ fontSize: 11, marginBottom: 12 }}>
-                主线好感到 {GATE} 才能进。每一条线各自独立，互不知道；回主线后，这里发生的事不会被提起。
+                主线信任到 {GATE} 才能进。每一条线各自独立，互不知道；回主线后，这里发生的事不会被提起。
               </div>
 
               {leads.map(c => {
@@ -84,13 +84,13 @@ export default function RoutesPage() {
                   <div key={c.id} className="save-row">
                     <div className="save-head">
                       <span className="save-title">{c.name}</span>
-                      <span className="muted">{stageOf(value)}</span>
+                      <span className="muted">{trustStageOf(value)}</span>
                       <span className="muted">{value} / 100</span>
                       {route && <span className="muted" style={{ marginLeft: 'auto' }}>已有个人线</span>}
                     </div>
                     <div className="save-actions">
                       <button className="mini" disabled={!open} onClick={() => enter(c)}>
-                        {route ? '继续' : open ? '进入' : `主线好感 ${GATE} 解锁`}
+                        {route ? '继续' : open ? '进入' : `主线信任 ${GATE} 解锁`}
                       </button>
                     </div>
                   </div>
