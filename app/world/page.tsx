@@ -790,6 +790,7 @@ export default function WorldPage() {
               <div className="muted" style={{ fontSize: 12, lineHeight: 1.9 }}>
                 只定义名字、初值和上限，当前值存在存档里。模型每回合只能申报增减，不能直接改写。
                 好感是内置的（每人 0–100），不用在这里重复加。
+                钱也不用在这里加：上面的钱包已经单独管钱，这里只放体力、经验这类数值。
               </div>
 
               <div className="attr-sub">你的</div>
