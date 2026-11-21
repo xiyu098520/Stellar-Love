@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import SceneCurtain from './SceneCurtain';
 
 export const metadata: Metadata = {
   title: 'STARSONG｜恋歌',
@@ -24,13 +25,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="zh-CN">
       <body>
-        {/* 首屏先把壁纸挂到 html 上，避免大厅加载后再铺图造成闪动 */}
+        {/* 首屏先把壁纸和大厅状态挂到 html 上，避免切回大厅时重排、闪动 */}
         <script
           dangerouslySetInnerHTML={{
             __html:
               'try{var w=localStorage.getItem("sl.wallpaper");if(w){document.documentElement.style.setProperty("--wall","url(\\""+w+"\\")")}}catch(e){}',
           }}
         />
+        <SceneCurtain />
         {children}
       </body>
     </html>

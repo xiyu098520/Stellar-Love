@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useLayoutEffect, useState } from 'react';
 import Link from 'next/link';
 import { listSaves, loadWallpaper, loadWorld } from '@/lib/store';
 import { loadWallet } from '@/lib/wallet';
@@ -73,15 +73,15 @@ export default function Lobby() {
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [ready, setReady] = useState(false);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    const w = loadWorld();
+    setWorld(w);
+    if (!w) {
+      setReady(true);
+      return;
+    }
+    setWallet(loadWallet(w.id, w));
     (async () => {
-      const w = loadWorld();
-      setWorld(w);
-      if (!w) {
-        setReady(true);
-        return;
-      }
-      setWallet(loadWallet(w.id, w));
       const rows = (await listSaves()).filter(s => s.worldId === w.id);
       const m = rows.find(s => s.kind === 'main') || null;
       setMain(m);
@@ -100,13 +100,11 @@ export default function Lobby() {
   }, []);
 
   // 壁纸铺在 html 层（fixed），切页回来不会重画、不会闪
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = document.documentElement;
     const { url } = loadWallpaper();
     if (url) el.style.setProperty('--wall', `url("${url}")`);
     else el.style.removeProperty('--wall');
-    el.classList.add('lobby');
-    return () => el.classList.remove('lobby');
   }, []);
 
   const clock = main?.state?.clock || (world ? initClock(world) : null);
@@ -127,7 +125,7 @@ export default function Lobby() {
         <div className="a-brand">
           STELLAR
           <i />
-          <small>v0.2.56</small>
+          <small>v0.2.57</small>
         </div>
         <div className="a-coin">
           {ready ? (wallet?.money ?? 0).toLocaleString('en-US') : '—'}
