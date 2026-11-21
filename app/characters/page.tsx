@@ -122,7 +122,15 @@ export default function CharactersPage() {
   return (
     <main className="ch-stage">
       <div className="ch-head">
-        <button className="ch-back" onClick={() => router.push('/world')}>返回</button>
+        <button
+          className="ch-back"
+          onClick={() => {
+            try { sessionStorage.setItem('world:resume', '1'); } catch {}
+            router.push('/world');
+          }}
+        >
+          返回
+        </button>
         <b>人物</b>
         <span>{world && total ? `${total} 人` : ''}</span>
       </div>

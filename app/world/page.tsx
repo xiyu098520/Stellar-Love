@@ -69,6 +69,15 @@ export default function WorldPage() {
 
   useEffect(() => {
     refresh();
+    let resume = false;
+    try {
+      resume = sessionStorage.getItem('world:resume') === '1';
+      if (resume) sessionStorage.removeItem('world:resume');
+    } catch {}
+    if (resume) {
+      const id = activeWorldId();
+      if (id) openEdit(id);
+    }
   }, []);
 
   function openEdit(id: string) {
