@@ -12,17 +12,63 @@ function daysIn(y: number, m: number): number {
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
+/** 读得懂 2065-09-12 / 2065/9/12 / 2065年9月12日 这几种写法 */
+export function parseDateText(v: string | undefined): { y: number; m: number; d: number } | null {
+  const s = (v || '').trim();
+  if (!s) return null;
+  const hit = s.match(/(\d{4})\s*[年\-/.]\s*(\d{1,2})\s*[月\-/.]\s*(\d{1,2})/);
+  if (!hit) return null;
+  const y = Number(hit[1]);
+  const m = Number(hit[2]);
+  const d = Number(hit[3]);
+  if (!y || m < 1 || m > 12 || d < 1 || d > daysIn(y, m)) return null;
+  return { y, m, d };
+}
+
+/** 读得懂 8:00 / 08:00 / 8点 / 早上8点 / 晚上8点 / 8点半 / 20时30分 */
+export function parseTimeText(v: string | undefined): { h: number; m: number } | null {
+  const s = (v || '').trim();
+  if (!s) return null;
+  let hit = s.match(/(\d{1,2})\s*[::：时点]\s*(\d{1,2})?/);
+  if (!hit) hit = s.match(/(\d{1,2})/);
+  if (!hit) return null;
+  let h = Number(hit[1]);
+  const m = hit[2] ? Number(hit[2]) : /半/.test(s) ? 30 : 0;
+  if (h > 23 || m > 59) return null;
+  if (/凌晨|早上|上午/.test(s)) {
+    if (h === 12) h = 0;
+  } else if (/中午/.test(s)) {
+    if (h < 12) h += 12;
+  } else if (/下午|傍晚|晚上|夜/.test(s)) {
+    if (h < 12) h += 12;
+  }
+  return { h, m };
+}
+
+export function formatDate(p: { y: number; m: number; d: number }): string {
+  return `${p.y}-${pad(p.m)}-${pad(p.d)}`;
+}
+
+export function formatTime(p: { h: number; m: number }): string {
+  return `${pad(p.h)}:${pad(p.m)}`;
+}
+
+export function timeOfDay(h: number): string {
+  if (h < 6) return '凌晨';
+  if (h < 12) return '上午';
+  if (h === 12) return '中午';
+  if (h < 18) return '下午';
+  return '晚上';
+}
+
 /** 剧本没填就从 2025 年 9 月 1 日早上八点起 */
 export function initClock(world: World): Clock {
-  const [y, m, d] = (world.startDate || '').split('-').map(Number);
-  const [hh, mm] = (world.startTime || '').split(':').map(Number);
-  const year = Number.isFinite(y) && y > 0 ? y : 2025;
-  const month = Number.isFinite(m) && m >= 1 && m <= 12 ? m : 9;
-  const day = Number.isFinite(d) && d >= 1 && d <= daysIn(year, month) ? d : 1;
-  const min =
-    Number.isFinite(hh) && hh >= 0 && hh < 24
-      ? hh * 60 + (Number.isFinite(mm) && mm >= 0 && mm < 60 ? mm : 0)
-      : 8 * 60;
+  const d = parseDateText(world.startDate);
+  const t = parseTimeText(world.startTime);
+  const year = d?.y ?? 2025;
+  const month = d?.m ?? 9;
+  const day = d?.d ?? 1;
+  const min = t ? t.h * 60 + t.m : 8 * 60;
   return { y: year, m: month, d: day, min };
 }
 

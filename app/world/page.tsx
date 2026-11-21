@@ -12,6 +12,7 @@ import {
   setActiveWorld,
 } from '@/lib/store';
 import type { AttrDef, EventEntry, ExtraStory, Item, World, WorldBlock } from '@/lib/types';
+import { formatDate, formatTime, parseDateText, parseTimeText, timeOfDay } from '@/lib/clock';
 
 const splitKw = (v: string) => v.split(/[,，、\s]+/).map(s => s.trim()).filter(Boolean);
 
@@ -406,6 +407,8 @@ export default function WorldPage() {
   }
 
   const events = w.events || [];
+  const startDate = parseDateText(w.startDate);
+  const startTime = parseTimeText(w.startTime);
   const filtered = events
     .map((e, i) => ({ e, i }))
     .filter(({ e }) => (e.kind || 'event') === evTab)
@@ -469,10 +472,20 @@ export default function WorldPage() {
                 <input
                   value={w.startDate || ''}
                   onChange={e => patch({ startDate: e.target.value })}
+                  onBlur={() => {
+                    const p = parseDateText(w.startDate);
+                    if (p) patch({ startDate: formatDate(p) });
+                  }}
                   placeholder="2065-09-12"
                   inputMode="numeric"
                 />
-                <div className="tip">写成 年-月-日，比如 2065-09-12。开局第一天。</div>
+                <div className="tip">
+                  {!w.startDate
+                    ? '写成 2065-09-12，或者 2065年9月12日，都能认。'
+                    : startDate
+                      ? `会从 ${startDate.y}年${startDate.m}月${startDate.d}日 开始。`
+                      : '没读懂这个日期，写成 2065-09-12 或 2065年9月12日。'}
+                </div>
               </div>
 
               <div className="field">
@@ -480,10 +493,20 @@ export default function WorldPage() {
                 <input
                   value={w.startTime || ''}
                   onChange={e => patch({ startTime: e.target.value })}
+                  onBlur={() => {
+                    const p = parseTimeText(w.startTime);
+                    if (p) patch({ startTime: formatTime(p) });
+                  }}
                   placeholder="08:00"
                   inputMode="numeric"
                 />
-                <div className="tip">写成 时:分，比如 08:00。之后由模型报这一回合过了多少分钟，程序往下走，跨过午夜就进第二天。</div>
+                <div className="tip">
+                  {!w.startTime
+                    ? '按 24 小时写最稳：08:00 是早上，20:00 是晚上。写「晚上8点」也认得。'
+                    : startTime
+                      ? `第一回合从 ${formatTime(startTime)} 开始，${timeOfDay(startTime.h)} ${startTime.h} 点${startTime.m ? ` ${startTime.m} 分` : ''}。之后由模型报过了多少分钟，程序往下走。`
+                      : '没读懂这个时刻，写成 08:00，或者 晚上8点。'}
+                </div>
               </div>
 
               <Link href="/characters" className="menu-row" style={{ marginTop: 6 }}>
