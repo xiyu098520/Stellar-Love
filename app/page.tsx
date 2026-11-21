@@ -115,7 +115,7 @@ export default function Lobby() {
     : '';
   const leads = (world?.characters || []).filter(c => c.role !== 'npc').length;
   const specials = (world?.specials || []).length;
-  const startHref = main ? `/play?save=${main.id}` : '/story';
+  const startHref = '/story';
 
   return (
     <main className="lobby-a">
@@ -127,7 +127,7 @@ export default function Lobby() {
         <div className="a-brand">
           STELLAR
           <i />
-          <small>v0.2.54</small>
+          <small>v0.2.55</small>
         </div>
         <div className="a-coin">
           {ready ? (wallet?.money ?? 0).toLocaleString('en-US') : '—'}
