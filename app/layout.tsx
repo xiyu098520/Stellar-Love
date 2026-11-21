@@ -12,6 +12,9 @@ export const metadata: Metadata = {
     statusBarStyle: 'black-translucent',
     title: 'STARSONG',
   },
+  other: {
+    'apple-mobile-web-app-capable': 'yes',
+  },
 };
 
 export const viewport: Viewport = {
