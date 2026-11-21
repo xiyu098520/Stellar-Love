@@ -941,11 +941,13 @@ html:has(.lobby-a) body { height: 100%; overflow: hidden; }
 
 /* html 层也铺壁纸：底部工具栏/安全区外不再是纯黑 */
 html {
+  height: 100vh;
+  min-height: 100vh;
   background-image: var(--wall, none);
   background-size: cover;
-  background-position: center center;
+  background-position: center top;
   background-repeat: no-repeat;
-  background-attachment: fixed;
+  background-attachment: scroll;
 }
 body { background: transparent; }
 
