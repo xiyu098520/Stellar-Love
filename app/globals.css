@@ -1640,8 +1640,8 @@ body { background: transparent; }
   display: flex;
   align-items: center;
   gap: 8px;
-  background-color: #0a0d12;
-  border-top: 1px solid rgba(217, 188, 134, .18);
+  background: linear-gradient(to top, rgba(5, 7, 11, .4), rgba(5, 7, 11, .04) 72%, rgba(5, 7, 11, 0));
+  border-top: 1px solid rgba(217, 188, 134, .16);
 }
 .lobby-a .a-strip::before,
 .lobby-a .a-strip::after {
@@ -1664,8 +1664,10 @@ body { background: transparent; }
   align-items: center;
   justify-content: center;
   gap: 3px;
-  background: #0f1420;
-  border: 1px solid rgba(255, 255, 255, .07);
+  background: rgba(10, 14, 20, .44);
+  border: 1px solid rgba(255, 255, 255, .09);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
   color: #d7cfbf;
   text-align: center;
   position: relative;
