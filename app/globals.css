@@ -1572,7 +1572,7 @@ body { background: transparent; }
 .lobby-a .a-gacha {
   position: absolute;
   left: calc(20px + env(safe-area-inset-left));
-  bottom: calc(146px + env(safe-area-inset-bottom));
+  bottom: 146px;
   z-index: 6;
   width: 46px;
   height: 56px;
@@ -1611,7 +1611,7 @@ body { background: transparent; }
 .lobby-a .a-start {
   position: absolute;
   right: calc(18px + env(safe-area-inset-right));
-  bottom: calc(128px + env(safe-area-inset-bottom));
+  bottom: 128px;
   z-index: 6;
   font-family: var(--sans);
   font-size: 12px;
@@ -1635,8 +1635,8 @@ body { background: transparent; }
   right: 0;
   bottom: 0;
   z-index: 5;
-  height: calc(112px + env(safe-area-inset-bottom));
-  padding: 0 14px env(safe-area-inset-bottom);
+  height: 112px;
+  padding: 0 14px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1654,7 +1654,7 @@ body { background: transparent; }
   background: repeating-linear-gradient(90deg, rgba(255, 255, 255, .14) 0 6px, transparent 6px 14px);
 }
 .lobby-a .a-strip::before { top: 0; }
-.lobby-a .a-strip::after { bottom: env(safe-area-inset-bottom); }
+.lobby-a .a-strip::after { bottom: 0; }
 .lobby-a .a-card {
   flex: 1;
   min-width: 0;
@@ -3070,7 +3070,7 @@ html:has(.story-a) body {
   bottom: 0;
   z-index: 6;
   flex: 0 0 auto;
-  padding: 14px 18px calc(14px + env(safe-area-inset-bottom));
+  padding: 12px 18px 14px;
   background: linear-gradient(to top, rgba(7, 10, 16, .98) 42%, rgba(7, 10, 16, .8) 74%, transparent);
 }
 .story-a .s-cta {
