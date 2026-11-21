@@ -164,13 +164,15 @@ export default function PeoplePage() {
             >
               <span>{picked.c.name.slice(0, 1)}</span>
             </div>
-            <button className="pc-back pc-hero-back" onClick={back}>返回</button>
             <div className="pc-vname">{picked.c.name}</div>
-            <div className="pc-stamp">
-              {picked.bond.known ? `已相遇 ${picked.bond.known} 天` : '尚未记录'}
-            </div>
-            <div className="pc-hero-id">
-              {[picked.c.identity, picked.c.region].filter(Boolean).join(' · ')}
+            <div className="pc-hero-foot">
+              <button className="pc-back" onClick={back}>返回</button>
+              <div className="pc-stamp">
+                {picked.bond.known ? `已相遇 ${picked.bond.known} 天` : '尚未记录'}
+              </div>
+              <div className="pc-hero-id">
+                {[picked.c.identity, picked.c.region].filter(Boolean).join(' · ')}
+              </div>
             </div>
           </div>
 

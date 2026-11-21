@@ -4151,7 +4151,7 @@ html:has(.story-a) body {
 .pc-hero {
   position: relative;
   flex: none;
-  height: 268px;
+  height: 340px;
   overflow: hidden;
   background: linear-gradient(165deg, #2a1826 0%, #121019 58%, #09090f 100%);
 }
@@ -4182,32 +4182,37 @@ html:has(.story-a) body {
   color: rgba(241, 233, 216, .32);
 }
 .pc-hero-art.has span { display: none; }
-.pc-hero-back {
+.pc-hero-foot {
   position: absolute;
   left: 20px;
-  top: calc(40px + env(safe-area-inset-top));
+  right: 20px;
+  bottom: 42px;
   z-index: 3;
-  padding: 4px 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.pc-hero-foot .pc-back {
+  min-width: 0;
+  padding: 0;
   color: rgba(240, 231, 212, .92);
   text-shadow: 0 1px 8px rgba(0, 0, 0, .8);
 }
 .pc-vname {
   position: absolute;
-  right: 26px;
-  top: calc(64px + env(safe-area-inset-top));
+  right: 22px;
+  top: calc(92px + env(safe-area-inset-top));
   z-index: 2;
   writing-mode: vertical-rl;
   font-family: var(--serif);
-  font-size: 26px;
+  font-size: 25px;
   letter-spacing: .24em;
   color: #f7f0e0;
   text-shadow: 0 2px 18px rgba(0, 0, 0, .8);
 }
 .pc-stamp {
-  position: absolute;
-  left: 22px;
-  bottom: 42px;
-  z-index: 2;
+  position: static;
+  flex: none;
   padding: 3px 8px;
   transform: rotate(-3deg);
   border: 1px solid rgba(217, 188, 134, .6);
@@ -4217,10 +4222,13 @@ html:has(.story-a) body {
   color: rgba(233, 214, 174, .95);
 }
 .pc-hero-id {
-  position: absolute;
-  right: 26px;
-  bottom: 42px;
-  z-index: 2;
+  position: static;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 9px;
   letter-spacing: .14em;
   color: #a19684;
