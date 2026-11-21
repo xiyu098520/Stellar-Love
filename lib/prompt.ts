@@ -457,6 +457,19 @@ export function buildSystem(world: World, save: Save, lang: 'zh' | 'ja' = 'zh'):
   });
 
   const isRoute = save.kind === 'route';
+  const stageId = isRoute ? null : sceneLeadOf(world, save);
+  const met = stageId ? save.state?.met?.[stageId] : undefined;
+  const metNote = met
+    ? `【你们私下见过】
+你和她在${met.time ? ` ${met.time} ` : '之前'}私下见过 ${met.visits} 次。这些事是真的发生过，但不是这一场该谈的话题：除非她主动提起，不要主动提，也不要把话往那边带。
+`
+    : '';
+  const resumedNote =
+    !isRoute && save.state?.resumed
+      ? `【她刚回来】
+中间隔了些日子，她有自己的事要办；别人只是各忙各的，没有谁一直在等她。开场自然带过，不要追问她做了什么，也不要替她编造。
+`
+      : '';
 
   return `你是一款中文乙女向恋爱游戏的叙述者。你负责写这一回合的场面：旁白、对白、她的选择。玩家是女主角，用「你」称呼她。
 
@@ -471,6 +484,7 @@ ${blocksText(world, save)}
 【主角】
 ${selfText(world)}
 ${stateText(world, save) ? `\n${stateText(world, save)}\n` : ''}
+${metNote}${resumedNote}
 【场上可以有的人物】
 ${cast.map(charText).join('\n\n')}
 ${activeNpcs.length ? `\n【本回合可以出现的配角】\n${activeNpcs.map(charText).join('\n\n')}\n（配角只在需要的时候出现，不抢主线，不写成恋爱对象。）` : ''}

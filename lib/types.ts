@@ -293,6 +293,10 @@ export type GameState = {
   phoneAt?: number;
   /** 邀请冷却：角色 id -> 可以再邀请的回合 */
   inviteAt?: Record<string, number>;
+  /** 私下见过的记录：角色 id -> 次数和最近一次时间 */
+  met?: Record<string, { visits: number; time?: string }>;
+  /** 刚从个人线回到主线，下一回合要交代一句；用完即清 */
+  resumed?: boolean;
 };
 
 /** 一条收藏下来的语音：合成一次，反复听 */

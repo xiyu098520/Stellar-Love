@@ -41,6 +41,18 @@ export default function RoutesPage() {
     if (!world || !main) return;
     const existing = routeOf(c.id);
     if (existing) {
+      // 日子接着过：进线时把这条线的钟对齐到主线现在
+      const mc = main.state?.clock;
+      if (mc) {
+        await putSave({
+          ...existing,
+          state: {
+            ...(existing.state || emptyState()),
+            clock: mc,
+            time: clockText(mc),
+          },
+        });
+      }
       router.push(`/play?save=${existing.id}`);
       return;
     }
@@ -73,7 +85,7 @@ export default function RoutesPage() {
           {loaded && world && main && (
             <>
               <div className="muted" style={{ fontSize: 11, marginBottom: 12 }}>
-                主线信任到 {GATE} 才能进。每一条线各自独立，互不知道；回主线后，这里发生的事不会被提起。
+                主线信任到 {GATE} 才能进。日子是同一条，个人线里过的天会接着往下走；那几天只有你们两个人知道，别人不会知道细节。
               </div>
 
               {leads.map(c => {

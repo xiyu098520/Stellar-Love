@@ -603,6 +603,8 @@ function PlayInner() {
           log: [...base.log],
           clock,
           time: clockText(clock),
+          // 「她刚回来」只交代一回合
+          resumed: undefined,
         };
         if (out?.place) state.place = out.place;
 
@@ -662,6 +664,20 @@ function PlayInner() {
           setMoney(wallet.money);
         }
         await putSave(done);
+        // 主线和个人线共用一条日子：个人线里过的天数也记到主线的钟上
+        if (done.kind === 'route' && done.parentId && done.state?.clock) {
+          const mainSaved = await getSave(done.parentId);
+          if (mainSaved) {
+            await putSave({
+              ...mainSaved,
+              state: {
+                ...(mainSaved.state || emptyState()),
+                clock: done.state.clock,
+                time: done.state.time,
+              },
+            });
+          }
+        }
         // 主动手机消息：每 3 回合最多一条；同一个人没回之前最多两条
         const idx = done.turns.filter(t => t.role === 'assistant').length;
         const phoneAt = done.state?.phoneAt ?? -99;
@@ -869,7 +885,20 @@ function PlayInner() {
       updatedAt: Date.now(),
     };
     await putSave(next);
-    // 撤回一回合，钱、账目、抽卡币一起退回
+    // 个人线撤回，主线的钟也跟着退回去
+    if (next.kind === 'route' && next.parentId && u.state?.clock) {
+      const mainSaved = await getSave(next.parentId);
+      if (mainSaved) {
+        await putSave({
+          ...mainSaved,
+          state: {
+            ...(mainSaved.state || emptyState()),
+            clock: u.state.clock,
+            time: u.state.time,
+          },
+        });
+      }
+    }
     if (u.wallet) {
       saveWallet(save.worldId, u.wallet);
       setMoney(u.wallet.money);
@@ -895,36 +924,64 @@ function PlayInner() {
     );
   }
 
-  /** 个人线回到主线：时间往前走；这段剧情和羁绊都留在个人线里 */
+  /** 把「私下见过」记到主线：他自己记得，别的男主不知道 */
+  async function stampMain(main: Save, route: Save): Promise<Save> {
+    const rid = route.routeOf;
+    const visits = route.turns.filter(t => t.role === 'assistant').length;
+    const lastTime = [...route.turns]
+      .reverse()
+      .find(t => t.role === 'assistant' && t.time)?.time;
+    const met = { ...(main.state?.met || {}) };
+    if (rid) {
+      met[rid] = {
+        visits: (met[rid]?.visits || 0) + visits,
+        time: lastTime || met[rid]?.time,
+      };
+    }
+    const next: Save = {
+      ...main,
+      state: {
+        ...(main.state || emptyState()),
+        attrs: route.state?.attrs ?? main.state?.attrs,
+        // 个人线涨的是羁绊，留在个人线；主线的信任不跟着变
+        charAttrs: {
+          ...(main.state?.charAttrs || {}),
+          ...(rid && route.state?.charAttrs?.[rid]
+            ? { [rid]: route.state.charAttrs[rid] }
+            : {}),
+        },
+        met,
+        resumed: true,
+      },
+      updatedAt: Date.now(),
+    };
+    await putSave(next);
+    return next;
+  }
+
+  /** 个人线回到主线：日子接着往前走，见面的记录挂在主线上 */
   async function exitRoute() {
     if (!save || save.kind !== 'route') return;
-    if (!confirm('回主线？这条个人线会留在这里，随时可以回来。两条线时间各自走，互不影响。')) return;
+    if (!confirm('回主线？这条个人线会留在这里，随时可以回来。')) return;
     if (save.parentId) {
       const main = await getSave(save.parentId);
       if (main) {
-        const rid = save.routeOf;
-        const next: Save = {
-          ...main,
-          state: {
-            ...(main.state || emptyState()),
-            // 各条线时间独立：主线接着自己上次那一刻，不吞个人线的日期
-            attrs: save.state?.attrs ?? main.state?.attrs,
-            // 个人线涨的是羁绊，留在个人线；主线的信任不跟着变
-            charAttrs: {
-              ...(main.state?.charAttrs || {}),
-              ...(rid && save.state?.charAttrs?.[rid]
-                ? { [rid]: save.state.charAttrs[rid] }
-                : {}),
-            },
-          },
-          updatedAt: Date.now(),
-        };
-        await putSave(next);
+        const next = await stampMain(main, save);
         router.push(`/play?save=${next.id}`);
         return;
       }
     }
     router.push('/story');
+  }
+
+  /** 从个人线回列表：同样记一笔，再进别人的线时日子接着走 */
+  async function leaveRouteToList() {
+    if (!save || save.kind !== 'route') return;
+    if (save.parentId) {
+      const main = await getSave(save.parentId);
+      if (main) await stampMain(main, save);
+    }
+    router.push('/routes');
   }
 
   const started = entries.length > 0;
@@ -1008,7 +1065,9 @@ function PlayInner() {
       <header className="a-dtop">
         <button
           className="a-back"
-          onClick={() => router.push(save.kind === 'route' ? '/routes' : '/')}
+          onClick={() =>
+            save.kind === 'route' ? leaveRouteToList() : router.push('/')
+          }
         >
           返回
         </button>
