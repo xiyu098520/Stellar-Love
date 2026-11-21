@@ -126,7 +126,7 @@ export default function WorldPage() {
 
   function addPlace() {
     if (!w) return;
-    const placeList = [...(w.placeList || []), { title: '', content: '', mode: 'always' as const }];
+    const placeList = [...(w.placeList || []), { title: '', content: '', brief: '', mode: 'keyword' as const }];
     commit({ ...w, placeList });
     setOpen(`p${placeList.length - 1}`);
   }
@@ -629,6 +629,15 @@ export default function WorldPage() {
                         onChange={e => patchPlace(i, { title: e.target.value })}
                         placeholder="地点名称，如 西区"
                       />
+                      <div className="field">
+                        <label>一句话简介</label>
+                        <input
+                          value={p.brief || ''}
+                          onChange={e => patchPlace(i, { brief: e.target.value })}
+                          placeholder="如 旧城西边的老街区，修表铺多，夜里安静"
+                        />
+                        <div className="tip">没走到、也没提及时只给它看这一句；到了或提到了才展开下面的完整设定。</div>
+                      </div>
                       <div className="field">
                         <label>注入内容</label>
                         <textarea

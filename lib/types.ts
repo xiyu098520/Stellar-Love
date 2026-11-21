@@ -68,6 +68,8 @@ export type Character = {
 export type WorldBlock = {
   title: string;
   content: string;
+  /** 一句话简介：人不在、也没提到时，只给这一句 */
+  brief?: string;
   /** 怎么交给模型：常驻 / 关键词 / 动态 / 地点 / 关闭；不填按常驻 */
   mode?: 'always' | 'keyword' | 'dynamic' | 'place' | 'off';
   /** 动态：命中之后还持续几轮 */

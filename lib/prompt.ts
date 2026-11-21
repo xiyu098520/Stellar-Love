@@ -164,14 +164,6 @@ function recentText(save: Save): { recent: string; place: string } {
   return { recent, place };
 }
 
-/** NPC 的所属地区：提到这个人，就把那块地方一起带进来 */
-function activeNpcRegions(world: World, recent: string): string[] {
-  return world.characters
-    .filter(c => c.role === 'npc' && characterRegions(c).length > 0)
-    .filter(c => c.mode === 'always' || (c.keywords || []).some(k => k.trim() && recent.includes(k.trim())))
-    .flatMap(c => characterRegions(c));
-}
-
 function selfText(world: World): string {
   const s = world.self || {};
   const note = (s.note || world.protagonist || '').trim();
@@ -285,17 +277,18 @@ export function festivalDaysUntil(date: string | undefined, clock: Clock): numbe
 /** 这一回合真正要注入的块（顺序即优先级） */
 export function activeBlocks(world: World, save: Save): WorldBlock[] {
   const { recent, place } = recentText(save);
-  const npcRegions = activeNpcRegions(world, recent);
   const input = lastUserText(save);
   const index = turnIndex(save);
   const hits = save.state?.hits || {};
 
   const pick = (b: WorldBlock, i: number) => {
     if (!b.content.trim()) return false;
+    if ((b.mode || 'always') === 'off') return false;
     const key = entryKey(b, i);
     const t = b.title || '';
+    // 人就在这、或这一场里提到了，才展开完整内容
     if (t && place && place.includes(t)) return true;
-    if (t && npcRegions.some(r => r && (r.includes(t) || t.includes(r)))) return true;
+    if (t && recent.includes(t)) return true;
     return entryActive(b, { input, recent, place, index, hits, key });
   };
 
@@ -464,6 +457,15 @@ export function buildSystem(world: World, save: Save, lang: 'zh' | 'ja' = 'zh'):
   }).slice(0, 12);
 
   const isRoute = save.kind === 'route';
+  // 人物挂着的地区：没走到、也没提到时，只给一句速查
+  const shownTitles = new Set(activeBlocks(world, save).map(b => b.title));
+  const castRegions = cast.flatMap(characterRegions);
+  const briefPlaces = (world.placeList || [])
+    .filter(p => {
+      const t = (p.title || '').trim();
+      return t && (p.brief || '').trim() && !shownTitles.has(t) && castRegions.includes(t);
+    })
+    .slice(0, 10);
   const stageId = isRoute ? null : sceneLeadOf(world, save);
   const met = stageId ? save.state?.met?.[stageId] : undefined;
   const metNote = met
@@ -487,6 +489,8 @@ ${isRoute
 
 【世界观】
 ${blocksText(world, save)}
+${briefPlaces.length ? `\n【地区速查】\n${briefPlaces.map(p => `- ${p.title}：${(p.brief || '').trim()}`).join('\n')}\n（这些地方跟他或她有关，但这一场还没去、也没提到，所以只给一句概览；真要过去，或她提起了，再展开完整设定。）
+` : ''}
 
 【主角】
 ${selfText(world)}
