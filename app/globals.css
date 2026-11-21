@@ -2808,22 +2808,11 @@ html:has(.story-a) body {
 .story-a .s-nav .s-world {
   max-width: 96px;
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 9px;
   letter-spacing: .1em;
-  line-height: 1.2;
   color: #7d7669;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-.story-a .s-nav .s-world i {
-  font-style: normal;
-  font-size: 7px;
-  letter-spacing: .12em;
-  color: rgba(125, 118, 105, .6);
 }
 
 .story-a .s-scroll {
