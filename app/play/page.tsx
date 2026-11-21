@@ -603,8 +603,6 @@ function PlayInner() {
           log: [...base.log],
           clock,
           time: clockText(clock),
-          // 空过的那几天只在回主线后的第一回合交代一次
-          awayDays: undefined,
         };
         if (out?.place) state.place = out.place;
 
@@ -900,25 +898,17 @@ function PlayInner() {
   /** 个人线回到主线：时间往前走；这段剧情和羁绊都留在个人线里 */
   async function exitRoute() {
     if (!save || save.kind !== 'route') return;
-    if (!confirm('回主线？这条个人线会留在这里，随时可以回来。回主线后，这里发生的事不会被提起。')) return;
+    if (!confirm('回主线？这条个人线会留在这里，随时可以回来。两条线时间各自走，互不影响。')) return;
     if (save.parentId) {
       const main = await getSave(save.parentId);
       if (main) {
-        const rc = save.state?.clock;
-        const mc = main.state?.clock;
-        const clock = rc && (!mc || clockValue(rc) > clockValue(mc)) ? rc : mc;
         const rid = save.routeOf;
-        const away =
-          rc && mc ? Math.floor((clockValue(rc) - clockValue(mc)) / 1440) : 0;
         const next: Save = {
           ...main,
           state: {
             ...(main.state || emptyState()),
-            clock: clock || main.state?.clock,
-            time: clock ? clockText(clock) : main.state?.time,
+            // 各条线时间独立：主线接着自己上次那一刻，不吞个人线的日期
             attrs: save.state?.attrs ?? main.state?.attrs,
-            // 个人线里空过的整天，主线里要有个公开层面的交代
-            awayDays: away > 0 ? away : undefined,
             // 个人线涨的是羁绊，留在个人线；主线的信任不跟着变
             charAttrs: {
               ...(main.state?.charAttrs || {}),
