@@ -4151,7 +4151,7 @@ html:has(.story-a) body {
 .pc-hero {
   position: relative;
   flex: none;
-  height: 224px;
+  height: 268px;
   overflow: hidden;
   background: linear-gradient(165deg, #2a1826 0%, #121019 58%, #09090f 100%);
 }
@@ -4170,7 +4170,7 @@ html:has(.story-a) body {
   inset: 0;
   background:
     repeating-linear-gradient(118deg, rgba(255, 255, 255, .026) 0 1px, transparent 1px 24px),
-    linear-gradient(180deg, rgba(8, 8, 13, .52) 0%, transparent 26%, transparent 40%, rgba(10, 9, 15, .98) 100%);
+    linear-gradient(180deg, rgba(8, 8, 13, .72) 0%, rgba(8, 8, 13, .26) 24%, transparent 46%, rgba(10, 9, 15, .98) 100%);
 }
 .pc-hero-art span {
   position: absolute;
@@ -4185,7 +4185,7 @@ html:has(.story-a) body {
 .pc-hero-back {
   position: absolute;
   left: 20px;
-  top: calc(14px + env(safe-area-inset-top));
+  top: calc(40px + env(safe-area-inset-top));
   z-index: 3;
   padding: 4px 0;
   color: rgba(240, 231, 212, .92);
@@ -4194,7 +4194,7 @@ html:has(.story-a) body {
 .pc-vname {
   position: absolute;
   right: 26px;
-  top: 40px;
+  top: calc(64px + env(safe-area-inset-top));
   z-index: 2;
   writing-mode: vertical-rl;
   font-family: var(--serif);
@@ -4206,7 +4206,7 @@ html:has(.story-a) body {
 .pc-stamp {
   position: absolute;
   left: 22px;
-  bottom: 16px;
+  bottom: 42px;
   z-index: 2;
   padding: 3px 8px;
   transform: rotate(-3deg);
@@ -4219,7 +4219,7 @@ html:has(.story-a) body {
 .pc-hero-id {
   position: absolute;
   right: 26px;
-  bottom: 16px;
+  bottom: 42px;
   z-index: 2;
   font-size: 9px;
   letter-spacing: .14em;
