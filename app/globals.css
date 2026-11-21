@@ -4426,3 +4426,45 @@ html:has(.story-a) body {
   letter-spacing: .03em;
   color: #bdb2a0;
 }
+
+/* 个人线：底部确认 */
+.story-a .mask {
+  position: absolute; inset: 0; z-index: 9;
+  display: none; align-items: flex-end;
+  background: rgba(3,5,9,.72);
+  backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+}
+.story-a .mask.on { display: flex; }
+.story-a .sheetbox {
+  width: 100%;
+  padding: 24px 22px calc(22px + env(safe-area-inset-bottom));
+  border-top: 1px solid rgba(217,188,134,.3);
+  background: linear-gradient(180deg, #111726, #070a10);
+  font-family: var(--serif);
+  animation: story-up .26s ease;
+}
+@keyframes story-up { from { transform: translateY(28px); opacity: .4; } to { transform: none; opacity: 1; } }
+.story-a .sheetbox i {
+  display: block; font-style: normal; font-family: var(--sans);
+  font-size: 8px; letter-spacing: .4em; color: #6f6759;
+}
+.story-a .sheetbox h3 {
+  margin: 10px 0 0; font-weight: 400; font-size: 20px; letter-spacing: .2em; color: #f0eadc;
+}
+.story-a .sheetbox p {
+  margin: 10px 0 20px; font-size: 11px; line-height: 1.9; color: #9d9482;
+}
+.story-a .sheetbox .acts { display: flex; gap: 10px; }
+.story-a .sheetbox .acts button {
+  flex: 1; padding: 12px 0;
+  border: 1px solid rgba(217,188,134,.34);
+  background: none; color: #d9cdb1;
+  font-family: var(--sans); font-size: 12px; letter-spacing: .2em;
+  cursor: pointer;
+}
+.story-a .sheetbox .acts button.primary {
+  border-color: rgba(217,188,134,.8);
+  background: linear-gradient(180deg, rgba(217,188,134,.26), rgba(217,188,134,.1));
+  color: #f7edd5;
+}
+
