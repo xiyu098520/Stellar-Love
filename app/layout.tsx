@@ -23,7 +23,16 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="zh-CN">
-      <body>{children}</body>
+      <body>
+        {/* 首屏先把壁纸挂到 html 上，避免大厅加载后再铺图造成闪动 */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              'try{var w=localStorage.getItem("sl.wallpaper");if(w){document.documentElement.style.setProperty("--wall","url(\\""+w+"\\")")}}catch(e){}',
+          }}
+        />
+        {children}
+      </body>
     </html>
   );
 }

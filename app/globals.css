@@ -1411,31 +1411,23 @@ body { background: transparent; }
   z-index: 1;
   overflow: hidden;
   color: var(--a-ink);
-  background: #07090f;
+  background: transparent;
 }
+/* 壁纸由 html 层统一铺（fixed），这里只压一层暗色，避免切页时闪 */
 .lobby-a .a-bg {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(100% 62% at 74% 8%, rgba(54, 68, 126, .55), transparent 62%),
-    radial-gradient(75% 50% at 16% 94%, rgba(126, 85, 44, .22), transparent 68%),
-    linear-gradient(180deg, #090c14, #06080d 72%);
-}
-.lobby-a .a-wall {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center top;
+    radial-gradient(100% 62% at 74% 8%, rgba(54, 68, 126, .38), transparent 62%),
+    radial-gradient(75% 50% at 16% 94%, rgba(126, 85, 44, .2), transparent 68%),
+    linear-gradient(180deg, rgba(6, 8, 13, .5) 0%, rgba(6, 8, 13, .12) 34%, rgba(6, 8, 13, .3) 62%, rgba(6, 8, 13, .86) 100%);
 }
 .lobby-a .a-veil {
   position: absolute;
   inset: 0;
   pointer-events: none;
   background:
-    radial-gradient(120% 80% at 42% 40%, transparent 42%, rgba(0, 0, 0, .6) 100%),
-    linear-gradient(180deg, rgba(6, 8, 13, .42) 0%, transparent 24%, transparent 62%, rgba(6, 8, 13, .82) 100%);
+    radial-gradient(120% 80% at 42% 40%, transparent 46%, rgba(0, 0, 0, .52) 100%);
 }
 .lobby-a .a-beam {
   position: absolute;
@@ -1535,34 +1527,37 @@ body { background: transparent; }
 .lobby-a .a-rail {
   position: absolute;
   right: calc(12px + env(safe-area-inset-right));
-  top: calc(96px + env(safe-area-inset-top));
+  top: 53%;
+  transform: translateY(-50%);
   z-index: 6;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 20px;
 }
 .lobby-a .a-entry {
-  width: 40px;
+  width: 50px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  color: #837d70;
+  gap: 7px;
+  color: #b3aa99;
   font-family: var(--sans);
-  font-size: 8px;
-  letter-spacing: .1em;
+  font-size: 9.5px;
+  letter-spacing: .16em;
   background: none;
   border: 0;
-  padding: 0;
+  padding: 2px 0;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, .85);
 }
 .lobby-a .a-entry svg {
-  width: 17px;
-  height: 17px;
+  width: 22px;
+  height: 22px;
   stroke: currentColor;
   fill: none;
   stroke-width: 1.1;
   stroke-linecap: round;
   stroke-linejoin: round;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, .8));
 }
 .lobby-a .a-entry:hover { color: var(--a-gold); }
 
@@ -1632,11 +1627,11 @@ body { background: transparent; }
   right: 0;
   bottom: 0;
   z-index: 5;
-  height: calc(110px + env(safe-area-inset-bottom));
-  padding: 0 14px env(safe-area-inset-bottom);
+  height: calc(94px + env(safe-area-inset-bottom));
+  padding: 8px 10px calc(6px + env(safe-area-inset-bottom));
   display: flex;
-  align-items: center;
-  gap: 8px;
+  align-items: stretch;
+  gap: 6px;
   background-color: #0a0d12;
   background-image:
     repeating-linear-gradient(90deg, rgba(255, 255, 255, .14) 0 6px, transparent 6px 14px),
@@ -1649,13 +1644,13 @@ body { background: transparent; }
 .lobby-a .a-card {
   flex: 1;
   min-width: 0;
-  height: 72px;
+  height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 3px;
-  background: #0f1420;
+  background: #10141f;
   border: 1px solid rgba(255, 255, 255, .07);
   color: #d7cfbf;
   text-align: center;

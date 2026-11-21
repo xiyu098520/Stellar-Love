@@ -67,7 +67,6 @@ function Icon({ name }: { name: keyof typeof ICONS }) {
 
 export default function Lobby() {
   const [world, setWorld] = useState<World | null>(null);
-  const [wall, setWall] = useState('');
   const [main, setMain] = useState<Save | null>(null);
   const [routes, setRoutes] = useState(0);
   const [unread, setUnread] = useState(0);
@@ -78,7 +77,6 @@ export default function Lobby() {
     (async () => {
       const w = loadWorld();
       setWorld(w);
-      setWall(loadWallpaper().url);
       if (!w) {
         setReady(true);
         return;
@@ -101,17 +99,15 @@ export default function Lobby() {
     })();
   }, []);
 
-  // 壁纸同时铺到 html 层，页面之外露出的区域也是壁纸，不是纯黑
+  // 壁纸铺在 html 层（fixed），切页回来不会重画、不会闪
   useEffect(() => {
     const el = document.documentElement;
+    const { url } = loadWallpaper();
+    if (url) el.style.setProperty('--wall', `url("${url}")`);
+    else el.style.removeProperty('--wall');
     el.classList.add('lobby');
-    if (!wall) return () => { el.classList.remove('lobby'); };
-    el.style.setProperty('--wall', `url("${wall}")`);
-    return () => {
-      el.style.removeProperty('--wall');
-      el.classList.remove('lobby');
-    };
-  }, [wall]);
+    return () => el.classList.remove('lobby');
+  }, []);
 
   const clock = main?.state?.clock || (world ? initClock(world) : null);
   const dateLine = clock
@@ -123,11 +119,7 @@ export default function Lobby() {
 
   return (
     <main className="lobby-a">
-      {wall ? (
-        <img className="a-wall" src={wall} alt="" />
-      ) : (
-        <div className="a-bg" />
-      )}
+      <div className="a-bg" />
       <div className="a-veil" />
       <div className="a-beam" />
 
@@ -190,7 +182,7 @@ export default function Lobby() {
           <span>个人线</span>
           <i>{routes ? `${routes} 条` : '未开'}</i>
         </Link>
-        <Link href="/people" className={`a-card${specials ? ' has' : ''}`} prefetch>
+        <Link href="/people" className="a-card" prefetch>
           <Icon name="book" />
           <span>番外</span>
           <i>{specials ? `${specials} 篇` : '暂无'}</i>
