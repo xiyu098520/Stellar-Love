@@ -291,13 +291,15 @@ function PlayInner() {
 
   const lastAssistant = [...(save?.turns || [])].reverse().find(t => t.role === 'assistant');
   const choices = lastAssistant?.choices || [];
-  /** 快到的约定：到点前两小时内提醒 */
-  const dueAppt = (() => {
-    if (!save?.state?.clock || save.kind !== 'main') return undefined;
+  /** 最近的一条约定：一直显示，到点前两小时才能点 */
+  const apptInfo = (() => {
+    if (!save?.state?.clock || save.kind !== 'main') return null;
     const now = clockValue(save.state.clock);
-    return (save.state.appointments || []).find(
-      a => !a.done && clockValue(a.clock) - now <= 120,
-    );
+    const list = (save.state.appointments || []).filter(a => !a.done);
+    if (!list.length) return null;
+    const appt = [...list].sort((a, b) => clockValue(a.clock) - clockValue(b.clock))[0];
+    const diff = clockValue(appt.clock) - now;
+    return { appt, diff, soon: diff <= 120 };
   })();
 
   /** 只读回放只看这一章；平时看全部 */
@@ -656,10 +658,23 @@ function PlayInner() {
           setMoney(wallet.money);
         }
         await putSave(done);
-        // 这一回合他有没有在手机里找她
-        for (const p of out?.settle?.phone || []) {
-          const c = world?.characters.find(x => x.name === p.who && x.name.trim());
-          if (c && p.text) appendIncoming(done.id, c.id, p.text);
+        // 主动手机消息：每 3 回合最多一条；同一个人没回之前最多两条
+        const idx = done.turns.filter(t => t.role === 'assistant').length;
+        const phoneAt = done.state?.phoneAt ?? -99;
+        const cands = (out?.settle?.phone || []).filter(p => p.who && p.text);
+        if (cands.length && idx - phoneAt >= 3) {
+          for (const p of cands) {
+            const c = world?.characters.find(x => x.name === p.who && x.name.trim());
+            if (!c || !p.text) continue;
+            const waiting = (loadThreads(done.id)[c.id] || []).filter(
+              m => m.role === 'them' && !m.pushed,
+            ).length;
+            if (waiting >= 2) continue;
+            appendIncoming(done.id, c.id, p.text);
+            done.state = { ...(done.state || emptyState()), phoneAt: idx };
+            await putSave(done);
+            break;
+          }
         }
         countPhoneLeft(done.id);
         // 主线里好感到了 30、他这一回合在场，就问一次要不要去见他
@@ -1035,10 +1050,19 @@ function PlayInner() {
               </button>
             </div>
           )}
-          {dueAppt && (
+          {apptInfo && (
             <div className="choices">
-              <button className="choice" onClick={() => goAppointment(dueAppt.id)}>
-                今天和{dueAppt.characterName}有约 · 去赴约
+              <button
+                className="choice"
+                disabled={!apptInfo.soon}
+                onClick={() => goAppointment(apptInfo.appt.id)}
+              >
+                和{apptInfo.appt.characterName}有约 ·{' '}
+                {apptInfo.soon
+                  ? '去赴约'
+                  : apptInfo.diff < 1440
+                    ? '还有几小时'
+                    : `还有 ${Math.ceil(apptInfo.diff / 1440)} 天`}
               </button>
             </div>
           )}

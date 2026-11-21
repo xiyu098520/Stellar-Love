@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { advance, clockShort, clockText, initClock } from '@/lib/clock';
-import { emptyState } from '@/lib/affinity';
+import { applyDelta, emptyState } from '@/lib/affinity';
 import { chat, parseJSON } from '@/lib/llm';
 import {
   loadThreads,
@@ -17,6 +17,7 @@ import {
 } from '@/lib/phone';
 import type { Character, Item, Save, Settings, Wallet, World } from '@/lib/types';
 import { giftItem, loadWallet, saveWallet } from '@/lib/wallet';
+import { festivalDaysUntil } from '@/lib/prompt';
 import { activeProfile, getSave, latestSaveOf, loadSettings, loadWorld, putSave } from '@/lib/store';
 
 function PhoneInner() {
@@ -147,6 +148,10 @@ function PhoneInner() {
 
       // 他收下了，东西才真的记到他名下；推辞的话还留在背包里
       if (sending && wallet && out.accepted !== false) {
+        const todayKey = clockText(clock2).split(' ')[0];
+        const prevToday = wallet.gifts.filter(
+          g => g.characterId === person.id && (g.time || '').split(' ')[0] === todayKey,
+        ).length;
         const nextWallet = giftItem(wallet, sending, person.id, person.name, {
           time: clockText(clock2),
           line: save.kind === 'route' ? 'route' : 'main',
@@ -155,6 +160,25 @@ function PhoneInner() {
         if (nextWallet) {
           saveWallet(save.worldId, nextWallet);
           setWallet(nextWallet);
+        }
+        // 礼物的好感由程序算：当天第一件日常 +1、礼物 +2、节日或郑重感谢 +3，之后不再加
+        if (person.role !== 'npc' && prevToday === 0) {
+          const festival = (world.events || []).some(
+            e => e.kind === 'festival' && festivalDaysUntil(e.date, clock2) === 0,
+          );
+          const sincere = /谢谢|感谢|恭喜|生日|辛苦了|抱歉/.test(text);
+          const add = festival || sincere ? 3 : sending.kind === 'daily' ? 1 : 2;
+          const baseState = after.state || emptyState();
+          const before = baseState.affinity?.[person.id] ?? 0;
+          const raw = applyDelta(before, add);
+          const value = save.kind === 'main' ? Math.min(Math.max(30, before), raw) : raw;
+          const upd: Save = {
+            ...after,
+            state: { ...baseState, affinity: { ...baseState.affinity, [person.id]: value } },
+            updatedAt: Date.now(),
+          };
+          await putSave(upd);
+          setSave(upd);
         }
       }
       setGift(null);

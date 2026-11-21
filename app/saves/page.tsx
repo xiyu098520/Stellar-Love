@@ -125,12 +125,9 @@ export default function SavesPage() {
         await putSave(s);
         added += 1;
       }
+      // 钱包是跟着剧本走的，备份里带什么就恢复什么
       const wid = j.worldId;
-      if (j.wallet && wid && wid === world?.id) {
-        const local = loadWallet(wid, world);
-        const hasLocal = local.ledger.length || local.gifts.length || local.money;
-        if (!hasLocal) saveWallet(wid, j.wallet);
-      }
+      if (j.wallet && wid && wid === world?.id) saveWallet(wid, j.wallet);
       let clips = 0;
       for (const c of j.clips || []) {
         if (!c?.id) continue;

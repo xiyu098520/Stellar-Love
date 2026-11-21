@@ -266,7 +266,7 @@ export default function PeoplePage() {
                     <div className="ledger-bar" key={g.id}>
                       <span>{g.itemName}</span>
                       <span className="muted" style={{ marginLeft: 'auto' }}>
-                        {g.time || ''}{g.line === 'route' ? ' · 个人线' : ''}
+                        {g.time || ''}
                       </span>
                     </div>
                   ))}

@@ -80,7 +80,8 @@ export function pushText(save: Save, c: Character, msgs: PhoneMsg[]): string {
     .slice(-16)
     .map(m => `${m.role === 'me' ? '你' : c.name}：${m.text}`)
     .join('\n');
-  return `你在手机上跟${c.name}聊了一阵，这是刚发生的事：\n${lines}\n（不要复述聊天内容，只写它造成的后果。手机上的内容只有你知道；场上如果有人，他们看不到屏幕，也不知道对方是谁。）`;
+  const hasGift = msgs.some(m => m.text.startsWith('（送出'));
+  return `你在手机上跟${c.name}聊了一阵，这是刚发生的事：\n${lines}\n（不要复述聊天内容，只写它造成的后果。手机上的内容只有你知道；场上如果有人，他们看不到屏幕，也不知道对方是谁。${hasGift ? '礼物带来的好感已经由系统记过，不要因为礼物再涨好感。' : ''}）`;
 }
 
 /** 把几段没推送的聊天按时间合在一起，一次推完 */

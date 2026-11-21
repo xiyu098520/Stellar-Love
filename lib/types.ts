@@ -283,6 +283,8 @@ export type GameState = {
   appointments?: Appointment[];
   /** 每个角色今天有没有收过礼物：角色 id -> y-m-d */
   giftDay?: Record<string, string>;
+  /** 上一次有人在手机里找她是第几回合 */
+  phoneAt?: number;
   /** 邀请冷却：角色 id -> 可以再邀请的回合 */
   inviteAt?: Record<string, number>;
 };
