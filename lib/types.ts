@@ -52,7 +52,9 @@ export type Character = {
   mode?: 'always' | 'keyword' | 'dynamic';
   /** NPC：动态出现后持续几轮 */
   rounds?: number;
-  /** NPC：所属地区，对应场所里的名称 */
+  /** 所属地区与势力，可以挂多个 */
+  regions?: string[];
+  /** 旧数据：单个地区，读取时会并进 regions */
   region?: string;
   /** NPC：能不能在手机通讯录里找到 */
   contact?: boolean;
@@ -383,3 +385,10 @@ export type Settings = {
   wallpaper?: string;
   wallpaperName?: string;
 };
+
+/** 角色的地区与势力；旧数据里的单个 region 也算进来 */
+export function characterRegions(c: Character): string[] {
+  const list = (c.regions || []).filter(Boolean);
+  if (c.region && !list.includes(c.region)) list.push(c.region);
+  return list;
+}

@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { loadWorld, newId, saveWorld } from '@/lib/store';
 import type { Character, World } from '@/lib/types';
+import { characterRegions } from '@/lib/types';
 
 const splitKw = (v: string) => v.split(/[,，、\s]+/).map(s => s.trim()).filter(Boolean);
 
@@ -90,6 +91,14 @@ export default function CharactersPage() {
     const cur = world?.self?.regions || [];
     const next = cur.includes(title) ? cur.filter(x => x !== title) : [...cur, title];
     patchSelf({ regions: next.length ? next : undefined });
+  }
+
+  function toggleRegion(id: string, title: string) {
+    const c = world?.characters.find(x => x.id === id);
+    if (!c) return;
+    const cur = characterRegions(c);
+    const next = cur.includes(title) ? cur.filter(x => x !== title) : [...cur, title];
+    patch(id, { regions: next, region: undefined });
   }
 
   function add() {
@@ -327,21 +336,29 @@ export default function CharactersPage() {
                     </Field>
 
                     <Field
-                      label="所属地区"
-                      tip={places.length ? undefined : '先去「剧本 → 世界观 → 场所与势力」添加地点。'}
+                      label="地区与势力"
+                      tip={
+                        places.length
+                          ? '可以多选。他的铺子、所属组织、常待的片区都可以挂上。'
+                          : '先去「剧本 → 世界观 → 场所与势力」添加地点。'
+                      }
                     >
-                      <select
-                        value={c.region || ''}
-                        onChange={e => patch(c.id, { region: e.target.value || undefined })}
-                      >
-                        <option value="">不绑定</option>
-                        {places.map((p, idx) => (
-                          <option key={idx} value={p.title}>{p.title}</option>
-                        ))}
-                        {c.region && !places.some(p => p.title === c.region) && (
-                          <option value={c.region}>{c.region}（不在场所列表里）</option>
-                        )}
-                      </select>
+                      {places.length ? (
+                        <div className="ch-checks">
+                          {places.map((p, idx) => {
+                            const title = p.title || `#${idx + 1}`;
+                            const on = characterRegions(c).includes(title);
+                            return (
+                              <label key={idx} className="ch-check">
+                                <input type="checkbox" checked={on} onChange={() => toggleRegion(c.id, title)} />
+                                <span>{title}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="ch-tip">还没有地点，先去「场所与势力」添加。</div>
+                      )}
                     </Field>
 
                     <Field label="说话方式">

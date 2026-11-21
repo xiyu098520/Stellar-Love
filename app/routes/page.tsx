@@ -9,6 +9,7 @@ import { makeRouteSave } from '@/lib/routes';
 import { listSaves, listVoiceClips, loadWorld, putSave } from '@/lib/store';
 import { loadWallet } from '@/lib/wallet';
 import type { Character, Save, VoiceClip, Wallet, World } from '@/lib/types';
+import { characterRegions } from '@/lib/types';
 
 const GATE = 30;
 
@@ -173,7 +174,7 @@ export default function RoutesPage() {
                 <span className="s-ch-main">
                   <span className="s-ch-t">{r.c.name}</span>
                   <span className="s-ch-meta">
-                    {[r.c.identity, r.c.region].filter(Boolean).join(' · ')}
+                    {[r.c.identity, characterRegions(r.c).join(' / ')].filter(Boolean).join(' · ')}
                     {r.route
                       ? ` · 上次 ${r.route.state?.time || '——'}${r.route.state?.place ? ` ${r.route.state.place}` : ''}`
                       : ` · 信任 ${r.value} / 100`}

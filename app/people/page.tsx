@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { delVoiceClip, listSaves, listVoiceClips, loadWorld } from '@/lib/store';
 import { bondOf, groupByMonth, knowDays, memoriesOf } from '@/lib/bond';
 import type { Character, Save, VoiceClip, Wallet, World } from '@/lib/types';
+import { characterRegions } from '@/lib/types';
 import { loadWallet } from '@/lib/wallet';
 
 const IconPlay = () => (
@@ -136,7 +137,7 @@ export default function PeoplePage() {
                   <div className="pc-row-info">
                     <div className="pc-row-name">{c.name}</div>
                     <div className="pc-row-id">
-                      {[c.identity, c.region].filter(Boolean).join(' · ') || '—'}
+                      {[c.identity, characterRegions(c).join(' / ')].filter(Boolean).join(' · ') || '—'}
                     </div>
                     <div className="pc-row-last">
                       {last ? `最近　${last.title}` : '还没有记录'}
@@ -171,7 +172,7 @@ export default function PeoplePage() {
                 {picked.bond.known ? `已相遇 ${picked.bond.known} 天` : '尚未记录'}
               </div>
               <div className="pc-hero-id">
-                {[picked.c.identity, picked.c.region].filter(Boolean).join(' · ')}
+                {[picked.c.identity, characterRegions(picked.c).join(' / ')].filter(Boolean).join(' · ')}
               </div>
             </div>
           </div>
@@ -216,7 +217,7 @@ export default function PeoplePage() {
             <div className="pc-pane">
               <div className="pc-kv">
                 <div><em>身份</em><span>{picked.c.identity || '—'}</span></div>
-                <div><em>所属地区</em><span>{picked.c.region || '—'}</span></div>
+                <div><em>地区与势力</em><span>{characterRegions(picked.c).join(' / ') || '—'}</span></div>
                 <div><em>生日</em><span>{picked.c.birthday || '—'}</span></div>
                 <div><em>年龄</em><span>{picked.c.age || '—'}</span></div>
                 {(picked.c.fields || []).map((f, i) => (

@@ -5,6 +5,7 @@ import { emptyState, stageOf, trustStageOf } from './affinity';
 import { chapterLabel } from './chapter';
 import { clockText } from './clock';
 import type { Character, Clock, GameState, Save, Turn, World, WorldBlock } from './types';
+import { characterRegions } from './types';
 
 const FORMAT = `只输出一个 JSON 对象，不要任何解释、不要代码块围栏：
 {
@@ -166,9 +167,9 @@ function recentText(save: Save): { recent: string; place: string } {
 /** NPC 的所属地区：提到这个人，就把那块地方一起带进来 */
 function activeNpcRegions(world: World, recent: string): string[] {
   return world.characters
-    .filter(c => c.role === 'npc' && !!c.region)
+    .filter(c => c.role === 'npc' && characterRegions(c).length > 0)
     .filter(c => c.mode === 'always' || (c.keywords || []).some(k => k.trim() && recent.includes(k.trim())))
-    .map(c => c.region as string);
+    .flatMap(c => characterRegions(c));
 }
 
 function selfText(world: World): string {
@@ -374,6 +375,7 @@ function charText(c: Character): string {
     `### ${c.name}`,
     c.age ? `年龄：${c.age}` : '',
     c.identity ? `身份：${c.identity}` : '',
+    characterRegions(c).length ? `地区与势力：${characterRegions(c).join('、')}` : '',
     c.speech ? `说话方式：${c.speech}` : '',
     c.note ? `资料：${c.note}` : '',
     fields,
@@ -452,7 +454,7 @@ export function buildSystem(world: World, save: Save, lang: 'zh' | 'ja' = 'zh'):
     }
     return (
       (n.keywords || []).some(k => k.trim() && recent.includes(k.trim())) ||
-      (!!n.region && (place.includes(n.region) || recent.includes(n.region)))
+      characterRegions(n).some(r => place.includes(r) || recent.includes(r))
     );
   });
 
