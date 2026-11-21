@@ -3064,13 +3064,13 @@ html:has(.story-a) body {
 }
 
 .story-a .s-foot {
-  position: fixed;
+  position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
   z-index: 6;
   flex: 0 0 auto;
-  padding: 14px 18px calc(16px + env(safe-area-inset-bottom));
+  padding: 14px 18px calc(14px + env(safe-area-inset-bottom));
   background: linear-gradient(to top, rgba(7, 10, 16, .98) 42%, rgba(7, 10, 16, .8) 74%, transparent);
 }
 .story-a .s-cta {
