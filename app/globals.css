@@ -1420,14 +1420,14 @@ body { background: transparent; }
   background:
     radial-gradient(100% 62% at 74% 8%, rgba(54, 68, 126, .38), transparent 62%),
     radial-gradient(75% 50% at 16% 94%, rgba(126, 85, 44, .2), transparent 68%),
-    linear-gradient(180deg, rgba(6, 8, 13, .5) 0%, rgba(6, 8, 13, .12) 34%, rgba(6, 8, 13, .3) 62%, rgba(6, 8, 13, .86) 100%);
+    linear-gradient(180deg, rgba(6, 8, 13, .52) 0%, rgba(6, 8, 13, .1) 30%, rgba(6, 8, 13, .12) 62%, rgba(6, 8, 13, .32) 100%);
 }
 .lobby-a .a-veil {
   position: absolute;
   inset: 0;
   pointer-events: none;
   background:
-    radial-gradient(120% 80% at 42% 40%, transparent 46%, rgba(0, 0, 0, .52) 100%);
+    radial-gradient(120% 80% at 42% 40%, transparent 52%, rgba(0, 0, 0, .32) 100%);
 }
 .lobby-a .a-beam {
   position: absolute;
@@ -1640,8 +1640,8 @@ body { background: transparent; }
   display: flex;
   align-items: center;
   gap: 8px;
-  background: linear-gradient(to top, rgba(5, 7, 11, .4), rgba(5, 7, 11, .04) 72%, rgba(5, 7, 11, 0));
-  border-top: 1px solid rgba(217, 188, 134, .16);
+  background: none;
+  border-top: 0;
 }
 .lobby-a .a-strip::before,
 .lobby-a .a-strip::after {
