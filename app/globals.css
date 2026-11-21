@@ -4381,3 +4381,36 @@ html:has(.story-a) body {
 .pc-play.on { background: rgba(217, 188, 134, .14); }
 .pc-voice span { font-size: 8px; letter-spacing: .14em; color: #7f7768; }
 .pc-drop { margin-left: auto; border: 0; background: none; font-family: inherit; font-size: 13px; color: #6f675b; padding: 0 4px; }
+
+/* 语音收藏 */
+.pc-vhead {
+  display: flex;
+  align-items: baseline;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, .06);
+}
+.pc-vhead b {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 13px;
+  letter-spacing: .2em;
+  color: #d9cbb0;
+}
+.pc-vhead span { margin-left: auto; font-size: 8px; letter-spacing: .12em; color: #7a7264; }
+.pc-vrow {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 11px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, .05);
+}
+.pc-vtext {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--serif);
+  font-size: 12px;
+  line-height: 1.7;
+  letter-spacing: .03em;
+  color: #bdb2a0;
+}

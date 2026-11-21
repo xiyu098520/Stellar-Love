@@ -27,7 +27,7 @@ export default function PeoplePage() {
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [pickedId, setPickedId] = useState('');
-  const [tab, setTab] = useState<'profile' | 'memory'>('profile');
+  const [tab, setTab] = useState<'profile' | 'memory' | 'voice'>('profile');
   const [playing, setPlaying] = useState('');
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -58,6 +58,12 @@ export default function PeoplePage() {
   }, [world, leads, saves, voices, wallet, main]);
 
   const picked = cast.find(x => x.c.id === pickedId);
+
+  const mine = picked
+    ? voices
+        .filter(v => v.characterId === picked.c.id && (!world?.id || v.worldId === world.id))
+        .sort((a, b) => b.createdAt - a.createdAt)
+    : [];
 
   function playVoice(v: VoiceClip) {
     if (playing === v.id) {
@@ -196,6 +202,12 @@ export default function PeoplePage() {
             >
               拾光轴<em>MEMORY</em>
             </button>
+            <button
+              className={tab === 'voice' ? 'on' : ''}
+              onClick={() => setTab('voice')}
+            >
+              语音<em>VOICE</em>
+            </button>
           </div>
 
           {tab === 'profile' && (
@@ -276,6 +288,35 @@ export default function PeoplePage() {
                       </div>
                     ))}
                   </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {tab === 'voice' && (
+            <div className="pc-pane">
+              <div className="pc-vhead">
+                <b>语音收藏</b>
+                <span>{mine.length ? `${mine.length} 条` : ''}</span>
+              </div>
+
+              {!mine.length && (
+                <div className="pc-hint">
+                  在剧情里点台词右上角的收藏键，他的声音会存到这里，可以反复听。
+                </div>
+              )}
+
+              {mine.map(v => (
+                <div className="pc-vrow" key={v.id}>
+                  <button
+                    className={`pc-play${playing === v.id ? ' on' : ''}`}
+                    onClick={() => playVoice(v)}
+                    title={playing === v.id ? '停止' : '播放'}
+                  >
+                    {playing === v.id ? <IconStop /> : <IconPlay />}
+                  </button>
+                  <div className="pc-vtext">{v.text}</div>
+                  <button className="pc-drop" onClick={() => dropVoice(v.id)}>×</button>
                 </div>
               ))}
             </div>
