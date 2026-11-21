@@ -131,7 +131,10 @@ export default function StoryPage() {
           MAIN STORY
           <b>主线</b>
         </div>
-        <div className="s-world">{world?.title || ''}</div>
+        <div className="s-world">
+          {world?.title || ''}
+          <i>v0.2.58</i>
+        </div>
       </nav>
 
       <div className="s-scroll">
