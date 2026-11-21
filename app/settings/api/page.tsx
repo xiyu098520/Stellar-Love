@@ -95,9 +95,12 @@ export default function ApiSettingsPage() {
         body: JSON.stringify({ baseUrl: base, apiKey: cur.apiKey }),
       });
       if (res.status === 404) {
+        const eleven = /elevenlabs/i.test(base);
         res = await fetch(`${base}/models`, {
           headers: cur.apiKey
-            ? { Authorization: `Bearer ${cur.apiKey}`, 'xi-api-key': cur.apiKey }
+            ? eleven
+              ? { 'xi-api-key': cur.apiKey }
+              : { Authorization: `Bearer ${cur.apiKey}` }
             : {},
         });
       }
@@ -148,10 +151,7 @@ export default function ApiSettingsPage() {
       });
       if (res.status === 404) {
         const headers: Record<string, string> = {};
-        if (cur.apiKey) {
-          headers['xi-api-key'] = cur.apiKey;
-          headers.Authorization = `Bearer ${cur.apiKey}`;
-        }
+        if (cur.apiKey) headers['xi-api-key'] = cur.apiKey;
         res = await fetch(`${base}/voices`, { headers });
       }
       if (!res.ok) {
@@ -199,9 +199,7 @@ export default function ApiSettingsPage() {
         });
         if (res.status === 404) {
           res = await fetch(`${base}/voices`, {
-            headers: cur.apiKey
-              ? { 'xi-api-key': cur.apiKey, Authorization: `Bearer ${cur.apiKey}` }
-              : {},
+            headers: cur.apiKey ? { 'xi-api-key': cur.apiKey } : {},
           });
         }
         if (!res.ok) {

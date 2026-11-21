@@ -16,6 +16,8 @@ export type Turn = {
 export type SelfProfile = {
   name?: string;
   age?: string;
+  /** 生日，如 9月20日；提前两天交给模型 */
+  birthday?: string;
   /** 身份：哪家公司的什么人 */
   role?: string;
   /** 别人怎么称呼你 */
@@ -32,6 +34,8 @@ export type Character = {
   /** 主角色＝能开个人线；NPC＝按关键词/地区临时出现 */
   role?: 'lead' | 'npc';
   age?: string;
+  /** 生日，如 9月14日；提前两天交给模型 */
+  birthday?: string;
   avatar?: string;
   voiceId?: string;
   identity?: string;

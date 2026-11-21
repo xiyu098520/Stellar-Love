@@ -21,7 +21,7 @@ export async function onRequestPost(context: any) {
 
   try {
     const r = await fetch(`${base}/voices`, {
-      headers: { 'xi-api-key': apiKey, authorization: `Bearer ${apiKey}` },
+      headers: { 'xi-api-key': apiKey },
     });
     if (!r.ok) {
       const detail = await r.text();

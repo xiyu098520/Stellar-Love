@@ -260,6 +260,35 @@ export function activeBlocks(world: World, save: Save): WorldBlock[] {
   add('主线大纲', world.outline);
   add('禁忌', world.banned);
   add('文风', world.style);
+  const clock = save.state?.clock;
+  if (clock) {
+    const routeId = routeCharacterId(save);
+    const cast = (world.characters || []).filter(
+      c => c.role === 'npc' || !routeId || c.id === routeId,
+    );
+    cast.forEach(c => {
+      const b = (c.birthday || '').trim();
+      if (!b) return;
+      const days = festivalDaysUntil(b, clock);
+      if (days === null || days < 0 || days > 2) return;
+      out.push({
+        title: `生日 · ${c.name}（${days === 0 ? '就是今天' : `还有 ${days} 天`}）`,
+        content: `${b} 是${c.name}的生日。${days === 0 ? '今天就是。' : `还有 ${days} 天。`}这件事可以自然地出现在相处里；要不要准备、当天怎么过，由她决定，不要替她安排。`,
+        mode: 'always',
+      });
+    });
+    const myBirthday = (world.self?.birthday || '').trim();
+    if (myBirthday) {
+      const days = festivalDaysUntil(myBirthday, clock);
+      if (days !== null && days >= 0 && days <= 2) {
+        out.push({
+          title: `生日 · 她（${days === 0 ? '就是今天' : `还有 ${days} 天`}）`,
+          content: `${myBirthday} 是她的生日。${days === 0 ? '今天就是。' : `还有 ${days} 天。`}认识她的人会用自己的方式对待这一天；不要替她决定怎么过。`,
+          mode: 'always',
+        });
+      }
+    }
+  }
   (world.events || []).forEach((e, i) => {
     if (e.kind === 'festival' && save.state?.clock) {
       const days = festivalDaysUntil(e.date, save.state.clock);

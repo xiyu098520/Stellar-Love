@@ -110,6 +110,15 @@ export default function CharactersPage() {
                       />
                     </div>
                     <div className="field">
+                      <label>生日</label>
+                      <input
+                        value={world.self?.birthday || ''}
+                        onChange={e => patchSelf({ birthday: e.target.value })}
+                        placeholder="如 9月20日"
+                      />
+                      <div className="tip">和节日一样，提前两天让模型和各角色知道。</div>
+                    </div>
+                    <div className="field">
                       <label>身份</label>
                       <input
                         value={world.self?.role || ''}
@@ -180,6 +189,15 @@ export default function CharactersPage() {
                           onChange={e => patch(c.id, { age: e.target.value })}
                           placeholder="如 27"
                         />
+                      </div>
+                      <div className="field">
+                        <label>生日</label>
+                        <input
+                          value={c.birthday || ''}
+                          onChange={e => patch(c.id, { birthday: e.target.value })}
+                          placeholder="如 9月14日"
+                        />
+                        <div className="tip">和节日一样，提前两天让模型知道，好准备礼物。</div>
                       </div>
                       <div className="field">
                         <label>身份</label>

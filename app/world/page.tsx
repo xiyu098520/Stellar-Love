@@ -47,6 +47,7 @@ export default function WorldPage() {
   const [open, setOpen] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('base');
   const [evTab, setEvTab] = useState<EventEntry['kind']>('event');
+  const [playTab, setPlayTab] = useState<'attr' | 'shop' | 'extra'>('attr');
   const [q, setQ] = useState('');
   const [attrChar, setAttrChar] = useState('');
   const fileInput = useRef<HTMLInputElement>(null);
@@ -67,6 +68,7 @@ export default function WorldPage() {
     setW(target);
     setView('edit');
     setTab('base');
+    setPlayTab('attr');
     setOpen(null);
     setMsg('');
     setQ('');
@@ -465,35 +467,23 @@ export default function WorldPage() {
               <div className="field">
                 <label>开局日期</label>
                 <input
-                  type="date"
                   value={w.startDate || ''}
                   onChange={e => patch({ startDate: e.target.value })}
+                  placeholder="2065-09-12"
+                  inputMode="numeric"
                 />
-                <div className="tip">开局第一天。可以是未来年份，比如 2065 年。</div>
+                <div className="tip">写成 年-月-日，比如 2065-09-12。开局第一天。</div>
               </div>
 
               <div className="field">
                 <label>开局时刻</label>
                 <input
-                  type="time"
                   value={w.startTime || ''}
                   onChange={e => patch({ startTime: e.target.value })}
-                />
-                <div className="tip">第一回合从几点开始。之后由模型报这一回合过了多少分钟，程序往下走，跨过午夜就进第二天。</div>
-              </div>
-
-              <div className="field">
-                <label>初始资金</label>
-                <input
+                  placeholder="08:00"
                   inputMode="numeric"
-                  value={w.initialMoney ?? ''}
-                  onChange={e => {
-                    const n = Number(e.target.value.replace(/[^\d-]/g, ''));
-                    patch({ initialMoney: Number.isFinite(n) ? n : 0 });
-                  }}
-                  placeholder="比如 5000"
                 />
-                <div className="tip">主线和个人线共用这一份钱。之后剧情里赚的、花的，都记在账本里。</div>
+                <div className="tip">写成 时:分，比如 08:00。之后由模型报这一回合过了多少分钟，程序往下走，跨过午夜就进第二天。</div>
               </div>
 
               <Link href="/characters" className="menu-row" style={{ marginTop: 6 }}>
@@ -534,7 +524,15 @@ export default function WorldPage() {
                   </button>
                 )}
               </div>
-              {big('货币系统', 'currency', 4, '这里的钱叫什么、怎么换算，比如 1 星币约等于 10 元')}
+              <div className="field">
+                <label>货币系统</label>
+                <input
+                  value={w.currency || ''}
+                  onChange={e => patch({ currency: e.target.value })}
+                  placeholder="这里的钱叫什么、怎么换算"
+                />
+                <div className="tip">比如：1 星币约等于 10 元。</div>
+              </div>
 
               <div className="section-title">场所与势力</div>
               {(w.placeList || []).map((p, i) => (
@@ -763,6 +761,31 @@ export default function WorldPage() {
 
           {tab === 'play' && (
             <>
+              <div className="tabs" style={{ margin: '0 0 14px' }}>
+                <button className={`tab ${playTab === 'attr' ? 'on' : ''}`} onClick={() => setPlayTab('attr')}>数值</button>
+                <button className={`tab ${playTab === 'shop' ? 'on' : ''}`} onClick={() => setPlayTab('shop')}>商店</button>
+                <button className={`tab ${playTab === 'extra' ? 'on' : ''}`} onClick={() => setPlayTab('extra')}>番外</button>
+              </div>
+
+              {playTab === 'attr' && (
+              <>
+              <div className="section-title">钱包</div>
+              <div className="field">
+                <label>初始资金</label>
+                <input
+                  inputMode="numeric"
+                  value={w.initialMoney ?? ''}
+                  onChange={e => {
+                    const n = Number(e.target.value.replace(/[^\d-]/g, ''));
+                    patch({ initialMoney: Number.isFinite(n) ? n : 0 });
+                  }}
+                  placeholder="比如 5000"
+                />
+                <div className="tip">
+                  这是钱包余额的起点，没有上限；之后剧情里赚多少都算数。主线和个人线共用这一份钱。
+                </div>
+              </div>
+
               <div className="section-title">数值</div>
               <div className="muted" style={{ fontSize: 12, lineHeight: 1.9 }}>
                 只定义名字、初值和上限，当前值存在存档里。模型每回合只能申报增减，不能直接改写。
@@ -847,38 +870,62 @@ export default function WorldPage() {
               <div style={{ marginTop: 10 }}>
                 <button className="mini" onClick={addCharAttr} disabled={!attrChar}>＋ 给他加一条</button>
               </div>
+              </>
+              )}
 
-              <div className="section-title" style={{ marginTop: 26 }}>物品与商店</div>
+              {playTab === 'shop' && (
+              <>
+              <div className="section-title">物品与商店</div>
               <div className="muted" style={{ fontSize: 12, lineHeight: 1.9 }}>
                 商店按「店铺」分组。有纪念意义的选礼物，会记进他收到的东西；奶茶、便当这类选日常，只进账本。
               </div>
               {(w.items || []).map((it, i) => (
-                <div
-                  key={it.id}
-                  style={{ display: 'grid', gridTemplateColumns: '1fr 72px 88px 68px 28px', gap: 6, marginTop: 8, alignItems: 'center' }}
-                >
-                  <input value={it.name} onChange={e => patchItem(i, { name: e.target.value })} placeholder="物品名" />
-                  <input
-                    inputMode="numeric"
-                    value={it.price}
-                    onChange={e => patchItem(i, { price: Number(e.target.value.replace(/[^\d]/g, '')) || 0 })}
-                    placeholder="价格"
-                  />
-                  <input value={it.shop || ''} onChange={e => patchItem(i, { shop: e.target.value })} placeholder="店铺" />
-                  <select value={it.kind || 'daily'} onChange={e => patchItem(i, { kind: e.target.value as Item['kind'] })}>
-                    <option value="gift">礼物</option>
-                    <option value="daily">日常</option>
-                    <option value="collect">收藏</option>
-                  </select>
-                  <button className="mini danger" onClick={() => dropItem(i)}>×</button>
+                <div className="item-card" key={it.id}>
+                  <div className="item-line">
+                    <input
+                      className="item-name"
+                      value={it.name}
+                      onChange={e => patchItem(i, { name: e.target.value })}
+                      placeholder="物品名"
+                    />
+                    <button className="mini danger" onClick={() => dropItem(i)}>删除</button>
+                  </div>
+                  <div className="item-line">
+                    <input
+                      className="item-price"
+                      inputMode="numeric"
+                      value={it.price}
+                      onChange={e => patchItem(i, { price: Number(e.target.value.replace(/[^\d]/g, '')) || 0 })}
+                      placeholder="价格"
+                    />
+                    <input
+                      className="item-shop"
+                      value={it.shop || ''}
+                      onChange={e => patchItem(i, { shop: e.target.value })}
+                      placeholder="店铺"
+                    />
+                    <select
+                      className="item-kind"
+                      value={it.kind || 'daily'}
+                      onChange={e => patchItem(i, { kind: e.target.value as Item['kind'] })}
+                    >
+                      <option value="gift">礼物</option>
+                      <option value="daily">日常</option>
+                      <option value="collect">收藏</option>
+                    </select>
+                  </div>
                 </div>
               ))}
               <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
                 <button className="mini" onClick={addItem}>＋ 添加物品</button>
                 <button className="mini" onClick={seedItems}>填入日常商品</button>
               </div>
+              </>
+              )}
 
-              <div className="section-title" style={{ marginTop: 26 }}>番外</div>
+              {playTab === 'extra' && (
+              <>
+              <div className="section-title">番外</div>
               <div className="muted" style={{ fontSize: 12, lineHeight: 1.9 }}>
                 番外先做框架：写标题、简介和正文，绑给某个人；抽到才会解锁。也可以设成免费，人物页里直接能看。
               </div>
@@ -922,6 +969,8 @@ export default function WorldPage() {
               <div style={{ marginTop: 10 }}>
                 <button className="mini" onClick={addSpecial}>＋ 添加番外</button>
               </div>
+              </>
+              )}
             </>
           )}
 

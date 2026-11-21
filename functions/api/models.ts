@@ -20,10 +20,9 @@ export async function onRequestPost(context: any) {
   if (!base) return json({ error: '先填 API 地址' }, 400);
 
   try {
+    const eleven = /elevenlabs/i.test(base);
     const r = await fetch(`${base}/models`, {
-      headers: apiKey
-        ? { authorization: `Bearer ${apiKey}`, 'xi-api-key': apiKey }
-        : {},
+      headers: apiKey ? (eleven ? { 'xi-api-key': apiKey } : { authorization: `Bearer ${apiKey}` }) : {},
     });
     if (!r.ok) {
       const detail = await r.text();

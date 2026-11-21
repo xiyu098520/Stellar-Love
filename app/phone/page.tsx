@@ -163,9 +163,10 @@ function PhoneInner() {
         }
         // 礼物的好感由程序算：当天第一件日常 +1、礼物 +2、节日或郑重感谢 +3，之后不再加
         if (person.role !== 'npc' && prevToday === 0) {
-          const festival = (world.events || []).some(
-            e => e.kind === 'festival' && festivalDaysUntil(e.date, clock2) === 0,
-          );
+          const festival =
+            (world.events || []).some(
+              e => e.kind === 'festival' && festivalDaysUntil(e.date, clock2) === 0,
+            ) || festivalDaysUntil(person.birthday, clock2) === 0;
           const sincere = /谢谢|感谢|恭喜|生日|辛苦了|抱歉/.test(text);
           const add = festival || sincere ? 3 : sending.kind === 'daily' ? 1 : 2;
           const baseState = after.state || emptyState();
