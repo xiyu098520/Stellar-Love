@@ -454,9 +454,14 @@ export function buildSystem(world: World, save: Save, lang: 'zh' | 'ja' = 'zh'):
     }
     return (
       (n.keywords || []).some(k => k.trim() && recent.includes(k.trim())) ||
-      characterRegions(n).some(r => place.includes(r) || recent.includes(r))
+      recent.includes(n.name.trim())
     );
   });
+  // 只是人在这一带：先给一句简介，不给完整档案
+  const rosterNpcs = npcs.filter(n => {
+    if (activeNpcs.includes(n)) return false;
+    return characterRegions(n).some(r => place.includes(r) || recent.includes(r));
+  }).slice(0, 12);
 
   const isRoute = save.kind === 'route';
   const stageId = isRoute ? null : sceneLeadOf(world, save);
@@ -490,6 +495,7 @@ ${metNote}${resumedNote}
 【场上可以有的人物】
 ${cast.map(charText).join('\n\n')}
 ${activeNpcs.length ? `\n【本回合可以出现的配角】\n${activeNpcs.map(charText).join('\n\n')}\n（配角只在需要的时候出现，不抢主线，不写成恋爱对象。）` : ''}
+${rosterNpcs.length ? `\n【这一带的人】\n${rosterNpcs.map(n => `- ${n.name}：${n.brief || n.identity || '住在这片区域的人'}`).join('\n')}\n（只是让你知道这一带有哪些人，不必都出场；要跟其中谁说话，就点他的名字，下回合会给完整档案。没点名的只当背景。）` : ''}
 
 【没有名字的人】
 人物表之外的人照样可以出现：便利店的店员、百货公司的员工、你的助理、街上撞到的人、一只会说话的机器宠物。

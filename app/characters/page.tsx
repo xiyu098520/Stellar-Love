@@ -334,6 +334,16 @@ export default function CharactersPage() {
                         placeholder={role === 'lead' ? '如 旧街零件铺老板' : '如 画廊主人'}
                       />
                     </Field>
+                    <Field
+                      label="一句话简介"
+                      tip="他所在片区的人先看这句，不展开完整档案；要细聊才会带出下面的资料。"
+                    >
+                      <input
+                        value={c.brief || ''}
+                        onChange={e => patch(c.id, { brief: e.target.value })}
+                        placeholder="如 巷口修表的老人，话少，什么都知道一点"
+                      />
+                    </Field>
 
                     <Field
                       label="地区与势力"

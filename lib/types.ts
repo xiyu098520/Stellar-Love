@@ -43,6 +43,8 @@ export type Character = {
   avatar?: string;
   voiceId?: string;
   identity?: string;
+  /** 一句话简介：人在这片区域时先给这句，不占完整档案 */
+  brief?: string;
   speech?: string;
   /** 个人资料 / 备注 */
   note?: string;
