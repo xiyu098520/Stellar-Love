@@ -1,69 +1,65 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { latestSaveOf, loadWallpaper, loadWorld } from '@/lib/store';
-import type { World } from '@/lib/types';
+import { listSaves, loadWallpaper, loadWorld } from '@/lib/store';
+import { loadWallet } from '@/lib/wallet';
+import { loadThreads } from '@/lib/phone';
+import { clockShort, initClock, timeOfDay } from '@/lib/clock';
+import type { Save, Wallet, World } from '@/lib/types';
 
 const ICONS: Record<string, React.ReactNode> = {
-  gear: (
+  person: (
     <>
-      <circle cx="12" cy="12" r="3.2" />
-      <path d="M12 3.2v2.1M12 18.7v2.1M4.8 12H2.7M21.3 12h-2.1M6.9 6.9 5.4 5.4M18.6 18.6l-1.5-1.5M17.1 6.9l1.5-1.5M5.4 18.6l1.5-1.5" />
+      <circle cx="12" cy="8" r="3.2" />
+      <path d="M5 20c0-4 3-6.4 7-6.4S19 16 19 20" />
     </>
   ),
-  user: (
+  heart: (
     <>
-      <circle cx="12" cy="8.4" r="3.4" />
-      <path d="M4.8 20c.5-3.6 3.5-5.6 7.2-5.6s6.7 2 7.2 5.6" />
+      <path d="M12 20s-7-4.2-7-9a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 4.8-7 9-7 9z" />
     </>
   ),
   book: (
     <>
-      <path d="M12 6.4c-1.7-1.3-4-1.9-6.4-1.9v12.6c2.4 0 4.7.6 6.4 1.9 1.7-1.3 4-1.9 6.4-1.9V4.5c-2.4 0-4.7.6-6.4 1.9Z" />
-      <path d="M12 6.4V19" />
+      <path d="M4 5h7a2 2 0 0 1 2 2v13a2 2 0 0 0-2-2H4z" />
+      <path d="M20 5h-7a2 2 0 0 0-2 2v13a2 2 0 0 1 2-2h7z" />
     </>
   ),
-  play: (
+  phone: (
     <>
-      <path d="M12 3.6 20.4 12 12 20.4 3.6 12Z" />
-      <path d="M12 8.2 15.8 12 12 15.8 8.2 12Z" />
+      <rect x="7" y="3" width="10" height="18" rx="2" />
+      <path d="M11 18h2" />
     </>
   ),
-  chevron: (
+  gear: (
     <>
-      <path d="M5 8l5 4-5 4" />
-      <path d="M12 8l5 4-5 4" />
+      <circle cx="12" cy="12" r="3" />
+      <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9L7 7M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1" />
     </>
   ),
-  branch: (
+  save: (
     <>
-      <path d="M6 4v10a3 3 0 0 0 3 3h9" />
-      <path d="M6 20V14" />
-      <path d="M15 14l3 3-3 3" />
+      <path d="M5 4h11l3 3v13H5z" />
+      <path d="M8 4v6h8V4M8 20v-5h8v5" />
     </>
   ),
-  spark: (
+  bag: (
     <>
-      <path d="M12 3.5c.6 3.6 1.9 5 5.5 5.5-3.6.6-5 1.9-5.5 5.5-.6-3.6-1.9-5-5.5-5.5 3.6-.6 5-1.9 5.5-5.5Z" />
-      <path d="M17.6 15.2c.3 1.7.9 2.3 2.6 2.6-1.7.3-2.3.9-2.6 2.6-.3-1.7-.9-2.3-2.6-2.6 1.7-.3 2.3-.9 2.6-2.6Z" />
+      <path d="M5 9h14l-1 11H6z" />
+      <path d="M9 9V7a3 3 0 0 1 6 0v2" />
+    </>
+  ),
+  star: (
+    <>
+      <path d="M12 3l2.6 5.6L21 10l-4.5 4.2 1 6.3-5.5-3-5.5 3 1-6.3L3 10l6.4-1.4z" />
     </>
   ),
 };
 
 function Icon({ name }: { name: keyof typeof ICONS }) {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      width="18"
-      height="18"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.1"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
+    <svg viewBox="0 0 24 24" aria-hidden="true">
       {ICONS[name]}
     </svg>
   );
@@ -71,20 +67,37 @@ function Icon({ name }: { name: keyof typeof ICONS }) {
 
 export default function Lobby() {
   const [world, setWorld] = useState<World | null>(null);
-  const [lastId, setLastId] = useState<string | null>(null);
   const [wall, setWall] = useState('');
+  const [main, setMain] = useState<Save | null>(null);
+  const [routes, setRoutes] = useState(0);
+  const [unread, setUnread] = useState(0);
+  const [wallet, setWallet] = useState<Wallet | null>(null);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     (async () => {
       const w = loadWorld();
       setWorld(w);
       setWall(loadWallpaper().url);
-      if (w) {
-        const s = await latestSaveOf(w.id);
-        setLastId(s?.id || null);
-      } else {
-        setLastId(null);
+      if (!w) {
+        setReady(true);
+        return;
       }
+      setWallet(loadWallet(w.id, w));
+      const rows = (await listSaves()).filter(s => s.worldId === w.id);
+      const m = rows.find(s => s.kind === 'main') || null;
+      setMain(m);
+      setRoutes(rows.filter(s => s.kind === 'route').length);
+      if (m) {
+        const threads = loadThreads(m.id);
+        setUnread(
+          Object.values(threads).reduce(
+            (n, list) => n + (list || []).filter(x => x.role === 'them' && !x.pushed).length,
+            0,
+          ),
+        );
+      }
+      setReady(true);
     })();
   }, []);
 
@@ -100,68 +113,98 @@ export default function Lobby() {
     };
   }, [wall]);
 
+  const clock = main?.state?.clock || (world ? initClock(world) : null);
+  const dateLine = clock
+    ? `${clockShort(clock)} · ${timeOfDay(Math.floor(clock.min / 60))}`
+    : '';
+  const leads = (world?.characters || []).filter(c => c.role !== 'npc').length;
+  const specials = (world?.specials || []).length;
+  const startHref = main ? `/play?save=${main.id}` : '/story';
+
   return (
-    <>
-      <div className={`stage-bg${wall ? '' : ' blank'}`} />
-      {wall && <img className="stage-photo" src={wall} alt="" />}
+    <main className="lobby-a">
+      {wall ? (
+        <img className="a-wall" src={wall} alt="" />
+      ) : (
+        <div className="a-bg" />
+      )}
+      <div className="a-veil" />
+      <div className="a-beam" />
 
-      <main className="stage">
-        <div className="hud-title">
-        <span className="en">STARSONG</span>
-        <span className="cn">恋歌</span>
+      <div className="a-top">
+        <div className="a-brand">
+          STELLAR
+          <i />
+        </div>
+        <div className="a-coin">
+          {ready ? (wallet?.money ?? 0).toLocaleString('en-US') : '—'}
+          <span>金</span>
+        </div>
       </div>
 
-      <Link href="/settings" className="hud-corner top-right" prefetch>
-        <Icon name="gear" />
-        <em>设定</em>
-      </Link>
-
-      <div className="hud-side">
-        <Link href="/routes" className="hud-link" prefetch>
-          <span className="en">ROUTE</span>
-          <span className="cn">个人线</span>
-        </Link>
-        <button className="off">
-          <span className="en">SIDE</span>
-          <span className="cn">番外</span>
-        </button>
-        <Link href="/world" className="hud-link" prefetch>
-          <span className="en">STORY</span>
-          <span className="cn">剧本</span>
-        </Link>
-        <Link href="/people" className="hud-link" prefetch>
-          <span className="en">ARCHIVE</span>
-          <span className="cn">人物</span>
-        </Link>
-        <Link href="/saves" className="hud-link" prefetch>
-          <span className="en">SAVE</span>
-          <span className="cn">存档</span>
-        </Link>
-        <Link href="/bag" className="hud-link" prefetch>
-          <span className="en">BAG</span>
-          <span className="cn">背包</span>
-        </Link>
-        <Link href="/gacha" className="hud-link" prefetch>
-          <span className="en">GACHA</span>
-          <span className="cn">抽卡</span>
-        </Link>
-      </div>
-
-      <Link href="/story" className="entry-main" prefetch>
-        <span className="en">MAIN · STORY</span>
-        <span className="title">恋歌</span>
-        <span className="sub">{world ? '主线 · 章节回放' : '先导入剧本'}</span>
-      </Link>
-
-      {lastId && (
-        <Link href={`/play?save=${lastId}`} className="entry-resume" prefetch>
-          <Icon name="chevron" />
-          <span>继续</span>
-        </Link>
+      {world && (
+        <div className="a-status">
+          <b>{world.title}</b>
+          {dateLine || '尚未开场'}
+          {main?.state?.place ? <em>{main.state.place}</em> : null}
+        </div>
       )}
 
-      <div className="hud-foot">{world ? world.title : '未载入剧本'} · v0.2.53</div>
-      </main>
-    </>
+      <Link href="/world" className="a-title" title="剧本设定">
+        {world?.title || '未载入剧本'}
+      </Link>
+
+      <nav className="a-rail">
+        <Link href="/settings" className="a-entry" prefetch>
+          <Icon name="gear" />
+          设定
+        </Link>
+        <Link href="/saves" className="a-entry" prefetch>
+          <Icon name="save" />
+          存档
+        </Link>
+        <Link href="/bag" className="a-entry" prefetch>
+          <Icon name="bag" />
+          背包
+        </Link>
+      </nav>
+
+      <Link href="/gacha" className="a-gacha" prefetch>
+        <Icon name="star" />
+        <span>抽卡</span>
+        <em>{ready ? (wallet?.coins ?? 0).toLocaleString('en-US') : ''}</em>
+      </Link>
+
+      <Link href={startHref} className={`a-start${world ? '' : ' off'}`} prefetch>
+        开始放映
+      </Link>
+
+      <div className="a-strip">
+        <Link href="/people" className="a-card" prefetch>
+          <Icon name="person" />
+          <span>人物</span>
+          <i>{leads ? `${leads} 人` : '未建'}</i>
+        </Link>
+        <Link href="/routes" className="a-card" prefetch>
+          <Icon name="heart" />
+          <span>个人线</span>
+          <i>{routes ? `${routes} 条` : '未开'}</i>
+        </Link>
+        <Link href="/people" className={`a-card${specials ? ' has' : ''}`} prefetch>
+          <Icon name="book" />
+          <span>番外</span>
+          <i>{specials ? `${specials} 篇` : '暂无'}</i>
+        </Link>
+        <Link
+          href={main ? `/phone?save=${main.id}` : '/phone'}
+          className={`a-card${unread ? ' has' : ''}`}
+          prefetch
+        >
+          <Icon name="phone" />
+          <span>手机</span>
+          <i>{unread ? `${unread} 条新消息` : '无新消息'}</i>
+        </Link>
+      </div>
+    </main>
   );
 }

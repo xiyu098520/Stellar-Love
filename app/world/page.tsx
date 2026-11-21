@@ -38,6 +38,14 @@ const DEFAULT_RELATIONS = `- 主线由事件推动，不围着任何一个男主
 
 type Tab = 'base' | 'world' | 'main' | 'event' | 'play';
 
+const TAB_META: { k: Tab; label: string; en: string }[] = [
+  { k: 'base', label: '基础', en: 'BASIC' },
+  { k: 'world', label: '世界观', en: 'WORLD' },
+  { k: 'main', label: '主线', en: 'STORY' },
+  { k: 'event', label: '事件', en: 'EVENT' },
+  { k: 'play', label: '玩法', en: 'SYSTEM' },
+];
+
 export default function WorldPage() {
   const router = useRouter();
   const [view, setView] = useState<'list' | 'edit'>('list');
@@ -305,37 +313,29 @@ export default function WorldPage() {
 
   if (view === 'list') {
     return (
-      <main className="page">
-        <div className="sheet">
-          <div className="topbar">
-            <button className="back" onClick={() => router.push('/')}>返回</button>
-            <div className="title">剧本</div>
-            <div className="right">{worlds.length ? `${worlds.length} 个` : ''}</div>
+      <main className="page world-a">
+        <div className="sheet a-sheet">
+          <div className="a-whead">
+            <button className="a-back" onClick={() => router.push('/')}>返回</button>
+            <b>剧本</b>
+            <span>{worlds.length ? `${worlds.length} 个` : ''}</span>
           </div>
 
-          <div className="body">
+          <div className="a-page">
             {!worlds.length && (
-              <div className="muted">还没有剧本。新建一个，或导入以前导出的文件。</div>
+              <div className="a-empty">还没有剧本。新建一个，或导入以前导出的文件。</div>
             )}
 
             {worlds.map(x => (
-              <div
-                key={x.id}
-                style={{
-                  padding: '14px 0',
-                  borderBottom: '1px solid var(--line)',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 15, letterSpacing: '.06em' }}>{x.title || '未命名剧本'}</span>
-                  {x.id === activeId && (
-                    <span className="block-mode">使用中</span>
-                  )}
+              <div className="a-wrow" key={x.id}>
+                <div className="a-row-title">
+                  <span>{x.title || '未命名剧本'}</span>
+                  {x.id === activeId && <span className="a-tag">使用中</span>}
                 </div>
-                <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+                <div className="a-row-meta">
                   {[x.tagline, `${x.characters?.length || 0} 人`].filter(Boolean).join(' · ')}
                 </div>
-                <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                <div className="a-row-actions">
                   <button className="mini" onClick={() => openEdit(x.id)}>编辑</button>
                   <button
                     className="mini"
@@ -363,7 +363,7 @@ export default function WorldPage() {
               </div>
             ))}
 
-            <div style={{ display: 'flex', gap: 10, marginTop: 18, flexWrap: 'wrap' }}>
+            <div className="a-import">
               <button className="btn" onClick={createWorld}>新建</button>
               <button className="btn ghost" onClick={() => fileInput.current?.click()}>导入</button>
             </div>
@@ -380,7 +380,7 @@ export default function WorldPage() {
               }}
             />
 
-            {msg && <div className="tip" style={{ marginTop: 12 }}>{msg}</div>}
+            {msg && <div className="a-empty" style={{ marginTop: 12 }}>{msg}</div>}
           </div>
         </div>
       </main>
@@ -391,15 +391,15 @@ export default function WorldPage() {
 
   if (!w) {
     return (
-      <main className="page">
-        <div className="sheet">
-          <div className="topbar">
-            <button className="back" onClick={backToList}>返回</button>
-            <div className="title">剧本</div>
-            <div className="right" />
+      <main className="page world-a">
+        <div className="sheet a-sheet">
+          <div className="a-whead">
+            <button className="a-back" onClick={backToList}>返回</button>
+            <b>剧本</b>
+            <span />
           </div>
-          <div className="body">
-            <div className="muted">这个剧本不见了，回列表看看。</div>
+          <div className="a-page">
+            <div className="a-empty">这个剧本不见了，回列表看看。</div>
           </div>
         </div>
       </main>
@@ -423,23 +423,34 @@ export default function WorldPage() {
       );
     });
 
+  const meta = TAB_META.find(m => m.k === tab) || TAB_META[0];
+  const tabIndex = TAB_META.findIndex(m => m.k === tab);
+
   return (
-    <main className="page">
-      <div className="sheet">
-        <div className="topbar">
-          <button className="back" onClick={backToList}>返回</button>
-          <div className="title">{w.title || '剧本'}</div>
-          <div className="right">{msg}</div>
+    <main className="page world-a">
+      <div className="sheet a-sheet">
+        <div className="a-whead">
+          <button className="a-back" onClick={backToList}>返回</button>
+          <b>{w.title || '剧本'}</b>
+          <span>{msg || '自动保存'}</span>
         </div>
 
-        <div className="body">
-          <div className="tabs">
-            <button className={`tab ${tab === 'base' ? 'on' : ''}`} onClick={() => setTab('base')}>基础</button>
-            <button className={`tab ${tab === 'world' ? 'on' : ''}`} onClick={() => setTab('world')}>世界观</button>
-            <button className={`tab ${tab === 'main' ? 'on' : ''}`} onClick={() => setTab('main')}>主线</button>
-            <button className={`tab ${tab === 'event' ? 'on' : ''}`} onClick={() => setTab('event')}>事件</button>
-            <button className={`tab ${tab === 'play' ? 'on' : ''}`} onClick={() => setTab('play')}>玩法</button>
-          </div>
+        <div className="a-wbody">
+          <nav className="a-spine">
+            {TAB_META.map(m => (
+              <button
+                key={m.k}
+                className={tab === m.k ? 'on' : ''}
+                onClick={() => setTab(m.k)}
+              >
+                {m.label}
+              </button>
+            ))}
+          </nav>
+
+          <div className="a-page">
+            <div className="a-wnum">{String(tabIndex + 1).padStart(2, '0')}</div>
+            <div className="a-wsec">{meta.en} / {meta.label}</div>
 
           {tab === 'base' && (
             <>
@@ -997,8 +1008,7 @@ export default function WorldPage() {
               )}
             </>
           )}
-
-          {msg && <div className="tip" style={{ marginTop: 12 }}>{msg}</div>}
+          </div>
         </div>
       </div>
     </main>

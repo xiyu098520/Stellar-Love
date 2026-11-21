@@ -1,13 +1,12 @@
 'use client';
 
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { chat, parseJSON } from '@/lib/llm';
 import { activeBlocks, buildMessages, buildSummaryMessages, touchHits } from '@/lib/prompt';
 import { applyDelta, clampAttr, emptyState, seedState, snapDelta, stageOf } from '@/lib/affinity';
 import { advance, clockShort, clockText, clockValue, initClock } from '@/lib/clock';
-import { chapterLabel, chapterTurns, numberedTurns } from '@/lib/chapter';
+import { CHAPTER_SIZE, chapterLabel, chapterTurns, numberedTurns } from '@/lib/chapter';
 import { makeRouteSave } from '@/lib/routes';
 import { appendIncoming, loadThreads } from '@/lib/phone';
 import { takePendingPush } from '@/lib/phone';
@@ -92,6 +91,33 @@ const IconUndo = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4">
     <path d="M8 5L4 9l4 4" strokeLinecap="round" strokeLinejoin="round" />
     <path d="M4 9h9a6 6 0 0 1 0 12h-2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const IconPhone = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4">
+    <rect x="7" y="3" width="10" height="18" rx="2" />
+    <path d="M11 18h2" strokeLinecap="round" />
+  </svg>
+);
+
+const IconReceipt = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4">
+    <path d="M6 3h12v18l-3-2-3 2-3-2-3 2z" strokeLinejoin="round" />
+    <path d="M9 8h6M9 12h6" strokeLinecap="round" />
+  </svg>
+);
+
+const IconSend = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4">
+    <path d="M12 19V5" strokeLinecap="round" />
+    <path d="M6 11l6-6 6 6" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const IconHeart = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4">
+    <path d="M12 20s-7-4.2-7-9a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 4.8-7 9-7 9z" strokeLinejoin="round" />
   </svg>
 );
 
@@ -250,11 +276,18 @@ function PlayInner() {
   const [invite, setInvite] = useState<Character | null>(null);
   /** 手机里还没推进剧情的条数 */
   const [phoneLeft, setPhoneLeft] = useState(0);
-  const bottomRef = useRef<HTMLDivElement>(null);
   /** 手机推送只自动跑一次 */
   const pushHandled = useRef(false);
   /** 最后一段正文里已经点开了多少节拍；读到末尾才放选项和输入框 */
   const [seen, setSeen] = useState(9999);
+  /** 底部：回复区展开 / 收起 */
+  const [dockMode, setDockMode] = useState<'reply' | 'none'>('reply');
+  const [todoOpen, setTodoOpen] = useState(false);
+  /** 最近点过的选项，＋ 号拿它做叠加 */
+  const [picked, setPicked] = useState(-1);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [notifClosed, setNotifClosed] = useState(false);
+  const [phoneNote, setPhoneNote] = useState<{ name: string; count: number } | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -281,13 +314,19 @@ function PlayInner() {
       .catch(() => {});
   }, []);
 
+  /** 触发个人线邀请就弹出来问一次 */
   useEffect(() => {
-    if (readMode) {
-      window.scrollTo({ top: 0 });
-      return;
-    }
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }, [save?.turns.length, busy, seen, readMode]);
+    if (invite) setInviteOpen(true);
+  }, [invite]);
+
+  /** 有新消息时把弹窗重新亮起来 */
+  useEffect(() => {
+    setNotifClosed(false);
+  }, [phoneLeft]);
+
+  useEffect(() => {
+    if (readMode) window.scrollTo({ top: 0 });
+  }, [readMode]);
 
   const lastAssistant = [...(save?.turns || [])].reverse().find(t => t.role === 'assistant');
   const choices = lastAssistant?.choices || [];
@@ -453,52 +492,6 @@ function PlayInner() {
       setSaving('');
     }
   }
-
-  const renderDlg = (who: string | undefined, text: string, key: string, tone?: string, ja?: string) => {
-    const c = charOf(who);
-    const clip = c ? clips[clipKey(c.id, text)] : undefined;
-    return (
-      <div className="dlgbox" key={key}>
-        <div className="dlgbox-name">{who}</div>
-        {(voiceProfile?.baseUrl || c) && (
-          <div className="dlgbox-tools">
-            {voiceProfile?.baseUrl && (
-              <button
-                className={speaking === key ? 'on' : ''}
-                title="播放这句"
-                onClick={e => {
-                  e.stopPropagation();
-                  play(key, text, who, tone, ja);
-                }}
-              >
-                {speaking === key ? <IconStop /> : <IconPlay />}
-              </button>
-            )}
-            {c && (
-              <button
-                className={clip ? 'on' : ''}
-                title={clip ? '取消收藏' : '收藏这句'}
-                disabled={saving === key}
-                onClick={e => {
-                  e.stopPropagation();
-                  toggleFavorite(key, c, text);
-                }}
-              >
-                <IconBookmark on={!!clip} />
-              </button>
-            )}
-          </div>
-        )}
-        <div className="dlgbox-line">{text}</div>
-      </div>
-    );
-  };
-
-  const renderNarr = (text: string, key: string) => (
-    <div className="dlgbox narr" key={key}>
-      <div className="dlgbox-line">{text}</div>
-    </div>
-  );
 
   /** 一回合结束就在后台摘一次；摘要只给以后用，不影响这一段正文 */
   const summarizeTurn = useCallback(
@@ -714,11 +707,20 @@ function PlayInner() {
 
   function countPhoneLeft(saveId: string) {
     const threads = loadThreads(saveId);
-    const n = Object.values(threads).reduce(
-      (sum, list) => sum + (list || []).filter(m => !m.pushed).length,
-      0,
-    );
+    let n = 0;
+    let latest: { at: number; id: string; count: number } | null = null;
+    for (const [id, list] of Object.entries(threads)) {
+      const waiting = (list || []).filter(m => m.role === 'them' && !m.pushed);
+      n += waiting.length;
+      if (waiting.length) {
+        const at = waiting[waiting.length - 1].at;
+        if (!latest || at > latest.at) latest = { at, id, count: waiting.length };
+      }
+    }
     setPhoneLeft(n);
+    const w = world || loadWorld();
+    const who = latest ? w?.characters.find(c => c.id === latest!.id) : undefined;
+    setPhoneNote(who && latest ? { name: who.name, count: latest.count } : null);
   }
 
   /** 去见他：从这一刻切出个人线 */
@@ -929,189 +931,348 @@ function PlayInner() {
       ? world?.characters.find(c => c.id === save.routeOf)?.name || ''
       : '';
 
-  return (
-    <main className="page">
-      <div
-        className={`wallpaper${wall ? '' : ' default'}`}
-        style={wall ? { backgroundImage: `url(${wall})` } : undefined}
-      />
+  /* ---------- 只读回放 ---------- */
 
-      <div className="sheet">
-        <div className="topbar">
-          <button
-            className="back"
-            onClick={() => router.push(readMode ? '/story' : save.kind === 'route' ? '/routes' : '/')}
-          >
-            返回
-          </button>
-          <div className="title">
-            {save.kind === 'main' ? (chapter ? `第${chapter}章` : '主线') : `个人线${routeName ? ` · ${routeName}` : ''}`}
-          </div>
-          {save.kind === 'route' && !readMode && (
-            <button className="back" onClick={exitRoute} style={{ marginLeft: 'auto', marginRight: 14 }}>
-              回主线
-            </button>
-          )}
-          {!readMode && (
-            <Link
-              href={`/phone?save=${save.id}`}
-              className="back"
-              style={{ marginLeft: save.kind === 'route' ? 0 : 'auto', marginRight: 14 }}
-            >
-              手机
-            </Link>
-          )}
-          <Link
-            href="/ledger"
-            className="back"
-            style={{ marginLeft: !readMode ? 0 : 'auto', marginRight: 14 }}
-          >
-            结算
-          </Link>
-          <div className="right">
-            {readMode
-              ? '只读回放'
-              : `${money} 金 · ${save.state?.clock ? `${clockShort(save.state.clock)} · ` : ''}${
-                  entries.filter(e => e.turn.role === 'assistant').length
-                } 回合`}
-          </div>
+  if (readMode) {
+    return (
+      <main className="page a-read">
+        <div className="a-rhead">
+          <button onClick={() => router.push('/story')}>返回</button>
+          <b>{chapter ? `第 ${chapter} 章` : '只读回放'}</b>
+          <span>{entries.filter(e => e.turn.role === 'assistant').length} 回合</span>
         </div>
-
-        <div
-          className="reader"
-          onClick={() => {
-            if (reading) setSeen(s => s + 1);
-          }}
-        >
-          {!started && !readMode && (
-            <div className="center" style={{ padding: '18vh 0' }}>
-              <div className="muted" style={{ marginBottom: 20, letterSpacing: '.2em' }}>
-                {world?.title || '剧本'}
-              </div>
-              <button className="btn" onClick={begin} disabled={busy}>
-                {busy ? '正在开场……' : '开始'}
-              </button>
-              {err && <div className="err">{err}</div>}
-            </div>
-          )}
-
-          {!started && readMode && (
-            <div className="center" style={{ padding: '18vh 0' }}>
-              <div className="muted">这一章还没有内容。</div>
-            </div>
-          )}
-
+        <div className="a-rbody">
+          {!entries.length && <div className="a-rempty">这一章还没有内容。</div>}
           {entries.map(({ turn: t, no }, i) =>
             t.role === 'user' ? (
-              <div className="turn" key={i}>
-                <div className="you">{t.text}</div>
-              </div>
+              <div className="a-ryou" key={i}>你：{t.text}</div>
             ) : (
-              <div className="turn" key={i}>
-                {(t.time || (save.kind === 'main' && no)) && (
-                  <div className="meta">
-                    {save.kind === 'main' && no ? `${chapterLabel(no)} · ` : ''}
-                    {t.time}
+              <div key={i}>
+                {(t.time || no) && (
+                  <div className="a-rmeta">
+                    {no ? `${chapterLabel(no)} · ` : ''}
+                    {t.time || ''}
                     {t.place ? ` · ${t.place}` : ''}
                   </div>
                 )}
-                {i === lastIdx
-                  ? beatsOf(t.segments).map((b, k) =>
-                      k < seen ? (
-                        <div className={`beat ${b.type}`} key={k}>
-                          {b.type === 'dialogue'
-                            ? renderDlg(b.who, b.text, `t${i}b${k}`, b.tone, b.ja)
-                            : renderNarr(b.text, `t${i}b${k}`)}
-                        </div>
-                      ) : null,
-                    )
-                  : (t.segments || []).map((seg, k) =>
-                      seg.type === 'dialogue'
-                        ? renderDlg(seg.who, seg.text, `t${i}b${k}`, seg.tone, seg.ja)
-                        : renderNarr(seg.text, `t${i}b${k}`),
-                    )}
+                {(t.segments || []).map((seg, k) =>
+                  seg.type === 'dialogue' ? (
+                    <p className="a-rline" key={k}><em>{seg.who}</em>{seg.text}</p>
+                  ) : (
+                    <p className="a-rline narr" key={k}>{seg.text}</p>
+                  ),
+                )}
               </div>
             ),
           )}
-
-          {busy && <div className="muted">……</div>}
-          {reading && <div className="tap-hint">轻点继续</div>}
-          {err && started && <div className="err">{err}</div>}
-          <div ref={bottomRef} />
         </div>
+      </main>
+    );
+  }
+
+  /* ---------- 放映 ---------- */
+
+  const lastEntryNo = lastIdx >= 0 ? entries[lastIdx].no : 0;
+  const shown = lastBeats.slice(0, Math.max(0, Math.min(seen, lastBeats.length)));
+  const current = shown.length ? shown[shown.length - 1] : null;
+  const currentKey = current ? `t${lastIdx}b${shown.length - 1}` : '';
+  const currentChar =
+    current && current.type === 'dialogue' && current.who ? charOf(current.who) : undefined;
+  const currentClip =
+    current && currentChar ? clips[clipKey(currentChar.id, current.text)] : undefined;
+  const lastUser = [...entries].reverse().find(e => e.turn.role === 'user');
+  const userPending =
+    lastUser && entries.indexOf(lastUser) > lastIdx ? lastUser.turn.text : '';
+  const todos = (save.state?.appointments || []).filter(a => !a.done);
+  const todoLabel = apptInfo
+    ? `${clockShort(apptInfo.appt.clock)} · ${apptInfo.appt.characterName}`
+    : '没有约定';
+  const progress = lastEntryNo ? (((lastEntryNo - 1) % CHAPTER_SIZE) + 1) / CHAPTER_SIZE : 0;
+  const hasNotif = !!(invite || (phoneNote && phoneLeft > 0));
+
+  return (
+    <main className="play-a">
+      <div
+        className="a-scene"
+        style={wall ? { backgroundImage: `url("${wall}")` } : undefined}
+      />
+      <div className="a-vig" />
+      <div className="a-sprocket top" />
+      <div className="a-sprocket bot" />
+
+      <header className="a-dtop">
+        <button
+          className="a-back"
+          onClick={() => router.push(save.kind === 'route' ? '/routes' : '/')}
+        >
+          返回
+        </button>
+        <span className="a-no">
+          {lastEntryNo ? chapterLabel(lastEntryNo) : save.kind === 'main' ? '主线' : '个人线'}
+        </span>
+        <div className="a-prog"><i style={{ width: `${progress * 100}%` }} /></div>
+        {save.kind === 'route' && (
+          <button className="a-back" onClick={exitRoute}>回主线</button>
+        )}
+        <button
+          className="a-ibtn"
+          title="手机"
+          onClick={() => router.push(`/phone?save=${save.id}`)}
+        >
+          <IconPhone />
+        </button>
+        <button className="a-ibtn" title="结算" onClick={() => router.push('/ledger')}>
+          <IconReceipt />
+        </button>
+        <button className="a-ibtn" title="剧情回顾" onClick={() => setReview(true)}>
+          <IconClock />
+        </button>
+        <button
+          className="a-ibtn"
+          title="撤回上一回合"
+          disabled={!save.undo || busy}
+          onClick={undoLast}
+        >
+          <IconUndo />
+        </button>
+      </header>
+
+      {hasNotif && !notifClosed && !inviteOpen && !reading && (
+        <div
+          className="a-notif"
+          onClick={() =>
+            invite ? setInviteOpen(true) : router.push(`/phone?save=${save.id}`)
+          }
+        >
+          <span className="ic">{invite ? <IconHeart /> : <IconPhone />}</span>
+          <span className="tx">
+            <b>{invite ? invite.name : phoneNote?.name || '手机'}</b>
+            <span>
+              {invite
+                ? '想见你 · 个人线在等你'
+                : `${phoneNote?.count || 0} 条新消息`}
+            </span>
+          </span>
+          <span className="dot" />
+          <span className="go">{invite ? '去看 ›' : '手机 ›'}</span>
+        </div>
+      )}
+
+      {current?.type === 'dialogue' && current.who && (
+        <div className="a-name">{current.who}</div>
+      )}
+
+      <div
+        className="a-flex"
+        onClick={() => {
+          if (reading) setSeen(s => s + 1);
+        }}
+      >
+        {!started && (
+          <div className="a-center">
+            <div className="k">{save.kind === 'main' ? 'MAIN STORY' : 'PERSONAL ROUTE'}</div>
+            <div className="t">{world?.title || '剧本'}</div>
+            <div className="s">
+              {save.kind === 'route'
+                ? `${routeName} · 个人线`
+                : world?.tagline || '第一幕，从这里开始'}
+            </div>
+            <button className="a-cta" onClick={begin} disabled={busy}>
+              {busy ? '正在开场……' : '开始放映'}
+            </button>
+            {err && <div className="s" style={{ color: '#cf9c9c' }}>{err}</div>}
+          </div>
+        )}
+        {reading && <div className="a-tap">轻点继续</div>}
       </div>
 
-      {started && !reading && !readMode && (
-        <div className="dock">
-          {phoneLeft > 0 && save && (
-            <div className="choices">
-              <button className="choice" onClick={() => router.push(`/phone?save=${save.id}`)}>
-                手机里有 {phoneLeft} 条 · 去看看
-              </button>
+      <div
+        className="a-talk"
+        onClick={() => {
+          if (reading) setSeen(s => s + 1);
+        }}
+      >
+        {userPending && <div className="a-you">你 · {userPending}</div>}
+        {current &&
+          (current.type === 'dialogue' ? (
+            <>
+              <div className="a-ticket">{current.who}</div>
+              <div className="a-box">
+                <p>{current.text}</p>
+                {(voiceProfile?.baseUrl || currentChar) && (
+                  <div className="a-tools">
+                    {voiceProfile?.baseUrl && (
+                      <button
+                        className={speaking === currentKey ? 'on' : ''}
+                        onClick={e => {
+                          e.stopPropagation();
+                          play(currentKey, current.text, current.who, current.tone, current.ja);
+                        }}
+                      >
+                        {speaking === currentKey ? <IconStop /> : <IconPlay />}语音
+                      </button>
+                    )}
+                    {currentChar && (
+                      <button
+                        className={currentClip ? 'on' : ''}
+                        disabled={saving === currentKey}
+                        onClick={e => {
+                          e.stopPropagation();
+                          toggleFavorite(currentKey, currentChar, current.text);
+                        }}
+                      >
+                        <IconBookmark on={!!currentClip} />
+                        {currentClip ? '已收藏' : '收藏'}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="a-box narr">
+              <p>{current.text}</p>
+            </div>
+          ))}
+        {busy && <div className="a-busy">……</div>}
+      </div>
+
+      {started && !reading && (
+        <div className="a-dock">
+          {todoOpen && (
+            <div className="a-todo-panel">
+              {todos.length ? (
+                todos.map(a => {
+                  const now = save.state?.clock ? clockValue(save.state.clock) : 0;
+                  const diff = clockValue(a.clock) - now;
+                  const soon = diff <= 120;
+                  return (
+                    <button
+                      key={a.id}
+                      className="a-todo-item"
+                      disabled={!soon}
+                      onClick={() => goAppointment(a.id)}
+                    >
+                      <span>
+                        <b>{clockShort(a.clock)}</b> · {a.characterName}
+                        {a.place ? ` · ${a.place}` : ''}
+                      </span>
+                      <i>
+                        {soon
+                          ? '去赴约'
+                          : diff < 1440
+                            ? '还有几小时'
+                            : `还有 ${Math.ceil(diff / 1440)} 天`}
+                      </i>
+                    </button>
+                  );
+                })
+              ) : (
+                <div className="a-todo-empty">还没有约定。</div>
+              )}
             </div>
           )}
-          {apptInfo && (
-            <div className="choices">
-              <button
-                className="choice"
-                disabled={!apptInfo.soon}
-                onClick={() => goAppointment(apptInfo.appt.id)}
-              >
-                和{apptInfo.appt.characterName}有约 ·{' '}
-                {apptInfo.soon
-                  ? '去赴约'
-                  : apptInfo.diff < 1440
-                    ? '还有几小时'
-                    : `还有 ${Math.ceil(apptInfo.diff / 1440)} 天`}
-              </button>
-            </div>
-          )}
-          {invite && (
-            <div className="choices">
-              <button className="choice" disabled={busy} onClick={acceptInvite}>
-                去见他
-              </button>
-              <button className="choice" disabled={busy} onClick={postponeInvite}>
-                改约 · 过两天
-              </button>
-              <button className="choice" disabled={busy} onClick={declineInvite}>
-                婉拒
-              </button>
-            </div>
-          )}
-          {choices.length > 0 && (
-            <div className="choices">
+
+          {dockMode === 'reply' && choices.length > 0 && (
+            <div className="a-opts">
               {choices.map((c, i) => (
-                <button key={i} className="choice" disabled={busy} onClick={() => send(c)}>
+                <button
+                  key={i}
+                  className={`a-opt${picked === i ? ' on' : ''}`}
+                  disabled={busy}
+                  onClick={() => {
+                    setDraft(c);
+                    setPicked(i);
+                  }}
+                >
+                  <i>—</i>
                   {c}
                 </button>
               ))}
             </div>
           )}
-          <div className="ask">
-            <button className="dock-icon" onClick={() => setReview(true)} title="剧情回顾">
-              <IconClock />
-              <span>回顾</span>
+
+          <div className="a-pills">
+            <button
+              className={`a-pill todo${todoOpen ? ' on' : ''}`}
+              onClick={() => setTodoOpen(v => !v)}
+            >
+              <b>待办</b>
+              <span>{todoLabel}</span>
+              <i>›</i>
             </button>
             <button
-              className="dock-icon"
-              onClick={undoLast}
-              disabled={!save.undo || busy}
-              title="撤回上一回合"
+              className="a-pill"
+              onClick={() => router.push(`/phone?save=${save.id}`)}
             >
-              <IconUndo />
-              <span>撤回</span>
+              去手机{phoneLeft > 0 && <em>{phoneLeft}</em>}
             </button>
-            <input
-              value={draft}
-              onChange={e => setDraft(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Enter') send(draft);
-              }}
-              placeholder="写一句你想做的……"
-              disabled={busy}
-            />
-            <button onClick={() => send(draft)} disabled={busy}>↑</button>
+            <button
+              className={`a-pill${dockMode === 'reply' ? ' on' : ''}`}
+              onClick={() => setDockMode(m => (m === 'reply' ? 'none' : 'reply'))}
+            >
+              回复<i>{dockMode === 'reply' ? '⌃' : '⌄'}</i>
+            </button>
+          </div>
+
+          {dockMode === 'reply' && (
+            <>
+              <div className="a-reply">
+                <button
+                  className="a-add"
+                  disabled={busy || picked < 0}
+                  onClick={() => {
+                    const c = choices[picked];
+                    if (!c) return;
+                    setDraft(d => (d.trim() ? `${d.replace(/[，,。\s]+$/, '')}，${c}` : c));
+                  }}
+                >
+                  ＋
+                </button>
+                <input
+                  value={draft}
+                  onChange={e => setDraft(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') send(draft);
+                  }}
+                  placeholder="写一句你想做的…"
+                  disabled={busy}
+                />
+                <button className="a-send" disabled={busy} onClick={() => send(draft)}>
+                  <IconSend />
+                </button>
+              </div>
+              <div className="a-hint">
+                点选项替换，点＋叠加，不直接发
+                <b onClick={() => setDockMode('none')}>收起</b>
+              </div>
+            </>
+          )}
+
+          {err && <div className="a-hint" style={{ color: '#cf9c9c' }}>{err}</div>}
+        </div>
+      )}
+
+      {invite && inviteOpen && (
+        <div className="a-mask" onClick={() => setInviteOpen(false)}>
+          <div className="a-modal" onClick={e => e.stopPropagation()}>
+            <div className="k">PERSONAL ROUTE · {invite.name}</div>
+            <div className="t">他想见你</div>
+            <div className="d">主线的好感到这儿到顶了。再往下走，只能是个人线里的那一步。</div>
+            <div className="a-acts">
+              <button className="primary" disabled={busy} onClick={acceptInvite}>
+                去见他
+              </button>
+              <button disabled={busy} onClick={postponeInvite}>
+                改约 · 过两天
+              </button>
+              <button disabled={busy} onClick={declineInvite}>
+                婉拒
+              </button>
+              <button className="quiet" onClick={() => setInviteOpen(false)}>
+                再想想
+              </button>
+            </div>
           </div>
         </div>
       )}
