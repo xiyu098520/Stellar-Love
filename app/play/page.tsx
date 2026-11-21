@@ -603,6 +603,8 @@ function PlayInner() {
           log: [...base.log],
           clock,
           time: clockText(clock),
+          // 空过的那几天只在回主线后的第一回合交代一次
+          awayDays: undefined,
         };
         if (out?.place) state.place = out.place;
 
@@ -906,6 +908,8 @@ function PlayInner() {
         const mc = main.state?.clock;
         const clock = rc && (!mc || clockValue(rc) > clockValue(mc)) ? rc : mc;
         const rid = save.routeOf;
+        const away =
+          rc && mc ? Math.floor((clockValue(rc) - clockValue(mc)) / 1440) : 0;
         const next: Save = {
           ...main,
           state: {
@@ -913,6 +917,8 @@ function PlayInner() {
             clock: clock || main.state?.clock,
             time: clock ? clockText(clock) : main.state?.time,
             attrs: save.state?.attrs ?? main.state?.attrs,
+            // 个人线里空过的整天，主线里要有个公开层面的交代
+            awayDays: away > 0 ? away : undefined,
             // 个人线涨的是羁绊，留在个人线；主线的信任不跟着变
             charAttrs: {
               ...(main.state?.charAttrs || {}),

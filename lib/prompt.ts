@@ -457,6 +457,13 @@ export function buildSystem(world: World, save: Save, lang: 'zh' | 'ja' = 'zh'):
   });
 
   const isRoute = save.kind === 'route';
+  const away = !isRoute ? save.state?.awayDays || 0 : 0;
+  const awayNote = away
+    ? `【刚过去的一段】
+上一回合之后过了 ${away} 天。这几天她自己有事，不在他们的视线里；公开层面只知道她不在。
+开场可以自然带过：有人问一句、她回来了、手上的事已经往后走了。不要追问她这几天具体做了什么，也不要替她编造经历。
+`
+    : '';
 
   return `你是一款中文乙女向恋爱游戏的叙述者。你负责写这一回合的场面：旁白、对白、她的选择。玩家是女主角，用「你」称呼她。
 
@@ -471,6 +478,7 @@ ${blocksText(world, save)}
 【主角】
 ${selfText(world)}
 ${stateText(world, save) ? `\n${stateText(world, save)}\n` : ''}
+${awayNote}
 【场上可以有的人物】
 ${cast.map(charText).join('\n\n')}
 ${activeNpcs.length ? `\n【本回合可以出现的配角】\n${activeNpcs.map(charText).join('\n\n')}\n（配角只在需要的时候出现，不抢主线，不写成恋爱对象。）` : ''}
