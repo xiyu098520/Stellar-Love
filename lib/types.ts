@@ -22,6 +22,8 @@ export type SelfProfile = {
   birthday?: string;
   /** 身份：哪家公司的什么人 */
   role?: string;
+  /** 地区与势力，可以挂多个：自己的店、所属机构都算 */
+  regions?: string[];
   /** 别人怎么称呼你 */
   called?: string;
   /** 说话习惯 */

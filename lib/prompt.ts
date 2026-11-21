@@ -178,6 +178,7 @@ function selfText(world: World): string {
     s.name ? `名字：${s.name}` : '',
     s.age ? `年龄：${s.age}` : '',
     s.role ? `身份：${s.role}` : '',
+    (s.regions || []).length ? `地区与势力：${(s.regions || []).join('、')}` : '',
     s.called ? `别人怎么称呼她：${s.called}` : '',
     s.speech ? `说话习惯：${s.speech}` : '',
     note ? `其他：${note}` : '',

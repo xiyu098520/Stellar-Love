@@ -86,6 +86,12 @@ export default function CharactersPage() {
     commit({ ...world, self: { ...(world.self || {}), ...p } });
   }
 
+  function toggleSelfRegion(title: string) {
+    const cur = world?.self?.regions || [];
+    const next = cur.includes(title) ? cur.filter(x => x !== title) : [...cur, title];
+    patchSelf({ regions: next.length ? next : undefined });
+  }
+
   function add() {
     if (!world || role === 'self') return;
     const c: Character = {
@@ -186,6 +192,31 @@ export default function CharactersPage() {
                 onChange={e => patchSelf({ role: e.target.value })}
                 placeholder="如 星核互娱的老板"
               />
+            </Field>
+            <Field
+              label="地区与势力"
+              tip={
+                places.length
+                  ? '可以多选。自己的店、所属机构、常待的片区都可以挂上。'
+                  : '先去「剧本 → 世界观 → 场所与势力」添加地点。'
+              }
+            >
+              {places.length ? (
+                <div className="ch-checks">
+                  {places.map((p, idx) => {
+                    const title = p.title || `#${idx + 1}`;
+                    const on = (world.self?.regions || []).includes(title);
+                    return (
+                      <label key={idx} className="ch-check">
+                        <input type="checkbox" checked={on} onChange={() => toggleSelfRegion(title)} />
+                        <span>{title}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="ch-tip">还没有地点，先去「场所与势力」添加。</div>
+              )}
             </Field>
             <Field label="别人怎么称呼你" tip="四个人的叫法可以不一样，在这里写清大致的规矩。">
               <input
