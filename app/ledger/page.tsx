@@ -232,7 +232,7 @@ export default function LedgerPage() {
           {wallet && (
             <div className="ledger-card">
               <div className="ledger-card-top">
-                <span>余额 {wallet.money} 星币</span>
+                <span>余额 {wallet.money} 元</span>
                 <span className="muted">抽卡币 {wallet.coins}</span>
               </div>
               {wallet.ledger.length === 0 && (

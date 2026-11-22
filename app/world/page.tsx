@@ -610,7 +610,7 @@ export default function WorldPage() {
                   onChange={e => patch({ currency: e.target.value })}
                   placeholder="这里的钱叫什么、怎么换算"
                 />
-                <div className="tip">比如：1 星币约等于 10 元。</div>
+                <div className="tip">比如：人民币（元）；系统奖励直接打进账户。</div>
               </div>
 
               <div className="section-title">场所与势力</div>

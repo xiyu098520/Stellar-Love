@@ -125,11 +125,11 @@ export default function Lobby() {
         <div className="a-brand">
           STELLAR
           <i />
-          <small>v0.3.04</small>
+          <small>v0.3.05</small>
         </div>
         <div className="a-coin">
           {ready ? (wallet?.money ?? 0).toLocaleString('en-US') : '—'}
-          <span>星币</span>
+          <span>元</span>
         </div>
       </div>
 
