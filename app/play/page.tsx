@@ -915,6 +915,16 @@ function PlayInner() {
     void run(next);
   }, [save, world, settings, busy, params, run, router]);
 
+  // 新开局：先把开场演出来，不用她先说话
+  const openingOnce = useRef(false);
+  useEffect(() => {
+    if (!save || !world || !settings || busy) return;
+    if (save.turns.length) return;
+    if (openingOnce.current) return;
+    openingOnce.current = true;
+    void run(save);
+  }, [save, world, settings, busy, run]);
+
   async function send(text: string) {
     if (!save || busy || !text.trim()) return;
     const userTurn: Turn = { role: 'user', text: text.trim() };

@@ -656,7 +656,10 @@ export function buildMessages(
         }${save.state?.place ? `，${save.state.place}` : ''}。请写你们碰面的这一刻，从眼下的场景直接开始，不要重述世界观，也不要写开场白。`,
       });
     } else if (world.opening) {
-      history.push({ role: 'user', content: `开场：\n${world.opening}\n\n请从这里接着写第一回合。` });
+      history.push({
+        role: 'user',
+        content: `【开场】这是全局第一回合，开场还没有发生，不要当成已经过去的事略过：\n${world.opening}\n\n从开场的第一句演起：她刚醒、脑子里的声音第一次响起、她不信。只写她看到的、听到的、对方说的话，结尾留一个她能接话的口子。`,
+      });
     }
   }
 
