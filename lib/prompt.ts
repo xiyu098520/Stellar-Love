@@ -370,6 +370,7 @@ function charText(c: Character): string {
     c.identity ? `身份：${c.identity}` : '',
     characterRegions(c).length ? `地区与势力：${characterRegions(c).join('、')}` : '',
     c.speech ? `说话方式：${c.speech}` : '',
+    c.sample ? `说话范例：\n${c.sample}` : '',
     c.note ? `资料：${c.note}` : '',
     fields,
   ]

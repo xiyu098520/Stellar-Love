@@ -91,7 +91,7 @@ export default function BagPage() {
                 <div className="ledger-bar" key={it.id}>
                   <span>{it.name}</span>
                   <span className="muted">{it.kind === 'gift' ? '礼物' : it.kind === 'collect' ? '收藏' : '日常'}</span>
-                  <span className="muted" style={{ marginLeft: 'auto' }}>{it.price} 金</span>
+                  <span className="muted" style={{ marginLeft: 'auto' }}>{it.price} 星币</span>
                   <button className="mini" onClick={() => buy(it)} disabled={!wallet || wallet.money < it.price}>
                     买
                   </button>

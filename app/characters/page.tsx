@@ -379,6 +379,18 @@ export default function CharactersPage() {
                       />
                     </Field>
                     <Field
+                      label="说话范例"
+                      tip="两三句他真会说的话，模型照着这个语感写；别写太多，容易照抄。"
+                    >
+                      <textarea
+                        className="block-text"
+                        rows={3}
+                        value={c.sample || ''}
+                        onChange={e => patch(c.id, { sample: e.target.value })}
+                        placeholder="「不急。现场又不会跑，跑的是人。」"
+                      />
+                    </Field>
+                    <Field
                       label="音色 ID"
                       tip="跟着这个角色走，存在剧本里。朗读他台词时用这个音色；音色列表在「设定 → 接口 → 语音」里拉取。"
                     >

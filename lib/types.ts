@@ -46,6 +46,8 @@ export type Character = {
   /** 一句话简介：人在这片区域时先给这句，不占完整档案 */
   brief?: string;
   speech?: string;
+  /** 说话范例：几句原话，给模型照着语感写 */
+  sample?: string;
   /** 个人资料 / 备注 */
   note?: string;
   /** NPC：说到这些词就出现 */
