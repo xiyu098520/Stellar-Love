@@ -2423,7 +2423,7 @@ body { background: transparent; }
 }
 .play-a .a-reply {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 8px;
 }
 .play-a .a-add {
@@ -2440,20 +2440,24 @@ body { background: transparent; }
   align-items: center;
   justify-content: center;
 }
-.play-a .a-reply input {
+.play-a .a-reply textarea {
   flex: 1;
   min-width: 0;
-  height: 46px;
-  padding: 0 12px;
+  min-height: 46px;
+  max-height: 132px;
+  padding: 12px;
   border: 1px solid rgba(217, 188, 134, .22);
   background: rgba(8, 11, 17, .85);
   color: #ece7dc;
   font-family: var(--sans);
   font-size: 12px;
+  line-height: 1.6;
   letter-spacing: .06em;
   outline: none;
+  resize: none;
+  overflow-y: auto;
 }
-.play-a .a-reply input::placeholder { color: #7d7669; }
+.play-a .a-reply textarea::placeholder { color: #7d7669; }
 .play-a .a-send {
   width: 36px;
   height: 36px;

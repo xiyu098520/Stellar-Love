@@ -267,6 +267,15 @@ function PlayInner() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [draft, setDraft] = useState('');
+  const draftRef = useRef<HTMLTextAreaElement>(null);
+
+  // 输入框跟着内容长高，最多到 132px，再多就内部滚动
+  useEffect(() => {
+    const el = draftRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 132)}px`;
+  }, [draft]);
   const [review, setReview] = useState(false);
   const [clips, setClips] = useState<Record<string, VoiceClip>>({});
   /** 钱包跨存档共用，进页面时读一次，花完再写回 */
@@ -1643,11 +1652,16 @@ function PlayInner() {
                 >
                   ＋
                 </button>
-                <input
+                <textarea
+                  ref={draftRef}
+                  rows={1}
                   value={draft}
                   onChange={e => setDraft(e.target.value)}
                   onKeyDown={e => {
-                    if (e.key === 'Enter') send(draft);
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      send(draft);
+                    }
                   }}
                   placeholder="写一句你想做的…"
                   disabled={busy}
