@@ -600,9 +600,10 @@ function PlayInner() {
             : undefined,
         );
         if (extra?.trim()) {
-          messages[0] = {
-            ...messages[0],
-            content: `${messages[0].content}\n\n【本次重写要求】${extra.trim()}`,
+          const i = messages.length - 1;
+          messages[i] = {
+            ...messages[i],
+            content: `${messages[i].content}\n\n【本次重写要求】${extra.trim()}`,
           };
         }
         const storyApi = activeProfile(settings, 'story');

@@ -179,7 +179,7 @@ function selfText(world: World): string {
   return lines.length ? lines.join('\n') : '（未设定，按世界观推断）';
 }
 
-/** 固定栏目（不随触发变化的部分） */
+/** 固定栏目：一局里不会变，放在 system 最前面，缓存才能一直命中 */
 export function worldBlocks(world: World): WorldBlock[] {
   const out: WorldBlock[] = [];
   const add = (title: string, content?: string) => {
@@ -187,6 +187,7 @@ export function worldBlocks(world: World): WorldBlock[] {
   };
   add('时代与科技', world.era);
   add('核心规则', world.rules);
+  add('关系规则', world.relations);
   add('货币系统', world.currency);
   add('主线大纲', world.outline);
   add('禁忌', world.banned);
@@ -274,8 +275,8 @@ export function festivalDaysUntil(date: string | undefined, clock: Clock): numbe
   return Math.round((target - now) / 86400000);
 }
 
-/** 这一回合真正要注入的块（顺序即优先级） */
-export function activeBlocks(world: World, save: Save): WorldBlock[] {
+/** 跟着这一场走的条目：地点、节日、临时资料。每回合都可能变，只放进最后的用户消息 */
+export function dynamicBlocks(world: World, save: Save): WorldBlock[] {
   const { recent, place } = recentText(save);
   const input = lastUserText(save);
   const index = turnIndex(save);
@@ -293,19 +294,9 @@ export function activeBlocks(world: World, save: Save): WorldBlock[] {
   };
 
   const out: WorldBlock[] = [];
-  const add = (title: string, content?: string) => {
-    if (content && content.trim()) out.push({ title, content: content.trim(), mode: 'always' });
-  };
-  add('时代与科技', world.era);
-  add('核心规则', world.rules);
-  add('关系规则', world.relations);
-  add('货币系统', world.currency);
   (world.placeList || []).forEach((p, i) => {
     if (pick(p, i)) out.push({ ...p, content: p.content.trim() });
   });
-  add('主线大纲', world.outline);
-  add('禁忌', world.banned);
-  add('文风', world.style);
   const clock = save.state?.clock;
   if (clock) {
     const routeId = routeCharacterId(save);
@@ -353,11 +344,17 @@ export function activeBlocks(world: World, save: Save): WorldBlock[] {
   (world.extras || []).forEach((b, i) => {
     if (pick(b, i)) out.push({ ...b, content: b.content.trim() });
   });
+  return out;
+}
+
+/** 这一回合真正要注入的块（固定 + 动态），给摘要和速查用 */
+export function activeBlocks(world: World, save: Save): WorldBlock[] {
+  const out = [...worldBlocks(world), ...dynamicBlocks(world, save)];
   return out.length ? out : world.blocks || [];
 }
 
-function blocksText(world: World, save: Save): string {
-  return activeBlocks(world, save)
+function fixedBlocksText(world: World): string {
+  return worldBlocks(world)
     .map(b => `## ${b.title}\n${b.content}`)
     .join('\n\n');
 }
@@ -435,51 +432,7 @@ export function buildSystem(world: World, save: Save, lang: 'zh' | 'ja' = 'zh'):
   const leads = world.characters.filter(c => c.role !== 'npc' && c.name.trim());
   const cast = routeId ? leads.filter(c => c.id === routeId) : leads;
 
-  const { recent, place } = recentText(save);
-  const npcs = world.characters.filter(c => c.role === 'npc' && c.name.trim());
-  const hits = save.state?.hits || {};
-  const idx = turnIndex(save);
-  const activeNpcs = npcs.filter(n => {
-    if (n.mode === 'always') return true;
-    if (n.mode === 'dynamic') {
-      const hit = hits[`npc:${n.id}`];
-      if (hit === undefined) return false;
-      return idx - hit <= (n.rounds ?? 2);
-    }
-    return (
-      (n.keywords || []).some(k => k.trim() && recent.includes(k.trim())) ||
-      recent.includes(n.name.trim())
-    );
-  });
-  // 只是人在这一带：先给一句简介，不给完整档案
-  const rosterNpcs = npcs.filter(n => {
-    if (activeNpcs.includes(n)) return false;
-    return characterRegions(n).some(r => place.includes(r) || recent.includes(r));
-  }).slice(0, 12);
-
   const isRoute = save.kind === 'route';
-  // 人物挂着的地区：没走到、也没提到时，只给一句速查
-  const shownTitles = new Set(activeBlocks(world, save).map(b => b.title));
-  const castRegions = cast.flatMap(characterRegions);
-  const briefPlaces = (world.placeList || [])
-    .filter(p => {
-      const t = (p.title || '').trim();
-      return t && (p.brief || '').trim() && !shownTitles.has(t) && castRegions.includes(t);
-    })
-    .slice(0, 10);
-  const stageId = isRoute ? null : sceneLeadOf(world, save);
-  const met = stageId ? save.state?.met?.[stageId] : undefined;
-  const metNote = met
-    ? `【你们私下见过】
-你和她在${met.time ? ` ${met.time} ` : '之前'}私下见过 ${met.visits} 次。这些事是真的发生过，但不是这一场该谈的话题：除非她主动提起，不要主动提，也不要把话往那边带。
-`
-    : '';
-  const resumedNote =
-    !isRoute && save.state?.resumed
-      ? `【她刚回来】
-中间隔了些日子，她有自己的事要办；别人只是各忙各的，没有谁一直在等她。开场自然带过，不要追问她做了什么，也不要替她编造。
-`
-      : '';
 
   return `你是一款中文乙女向恋爱游戏的叙述者。你负责写这一回合的场面：旁白、对白、她的选择。玩家是女主角，用「你」称呼她。
 
@@ -489,14 +442,11 @@ ${isRoute
   : '这是主线：男主角都可以出现，可以只写一个，也可以在同一个场面里出现几位。有人在场时主次分明，谁在跟她说重要的话，谁就是这一场的主。'}
 
 【世界观】
-${blocksText(world, save)}
-${briefPlaces.length ? `\n【地区速查】\n${briefPlaces.map(p => `- ${p.title}：${(p.brief || '').trim()}`).join('\n')}\n（这些地方跟他或她有关，但这一场还没去、也没提到，所以只给一句概览；真要过去，或她提起了，再展开完整设定。）
-` : ''}
+${fixedBlocksText(world)}
 
 【主角】
 ${selfText(world)}
-${stateText(world, save) ? `\n${stateText(world, save)}\n` : ''}
-${metNote}${resumedNote}
+
 【场上可以有的人物】
 ${cast.map(charText).join('\n\n')}
 ${isRoute ? '' : `
@@ -514,8 +464,6 @@ ${isRoute ? '' : `
 - 他知道的信息只能是当场看到、听到，或者凭职业身份查得到的；不能凭空知道她的档案、能力、委托内容，也不能说“跟你档案上的一样”。
 - 研究院的人能查到登记档案，但也只知道档案上写的那几项，不知道她的私事。
 `}
-${activeNpcs.length ? `\n【本回合可以出现的配角】\n${activeNpcs.map(charText).join('\n\n')}\n（配角只在需要的时候出现，不抢主线，不写成恋爱对象。）` : ''}
-${rosterNpcs.length ? `\n【这一带的人】\n${rosterNpcs.map(n => `- ${n.name}：${n.brief || n.identity || '住在这片区域的人'}`).join('\n')}\n（只是让你知道这一带有哪些人，不必都出场；要跟其中谁说话，就点他的名字，下回合会给完整档案。没点名的只当背景。）` : ''}
 
 【没有名字的人】
 人物表之外的人照样可以出现：便利店的店员、百货公司的员工、你的助理、街上撞到的人、一只会说话的机器宠物。
@@ -541,6 +489,83 @@ ${isRoute ? ROUTE_SETTLE_RULE : MAIN_SETTLE_RULE}
 
 【输出】
 ${FORMAT}${lang === 'ja' ? JA_RULE : ''}`;
+}
+
+/** 每回合会变的部分：全部拼到最后一条用户消息里，system 一个字都不动，缓存才能一直命中 */
+export function buildTurnContext(world: World, save: Save, parentMain?: Save): string {
+  const isRoute = save.kind === 'route';
+  const { recent, place } = recentText(save);
+  const npcs = world.characters.filter(c => c.role === 'npc' && c.name.trim());
+  const hits = save.state?.hits || {};
+  const idx = turnIndex(save);
+
+  const activeNpcs = npcs.filter(n => {
+    if (n.mode === 'always') return true;
+    if (n.mode === 'dynamic') {
+      const hit = hits[`npc:${n.id}`];
+      if (hit === undefined) return false;
+      return idx - hit <= (n.rounds ?? 2);
+    }
+    return (
+      (n.keywords || []).some(k => k.trim() && recent.includes(k.trim())) ||
+      recent.includes(n.name.trim())
+    );
+  });
+  // 只是人在这一带：先给一句简介，不给完整档案
+  const rosterNpcs = npcs
+    .filter(n => {
+      if (activeNpcs.includes(n)) return false;
+      return characterRegions(n).some(r => place.includes(r) || recent.includes(r));
+    })
+    .slice(0, 12);
+
+  // 人物挂着的地区：没走到、也没提到时，只给一句速查
+  const shownTitles = new Set(activeBlocks(world, save).map(b => b.title));
+  const routeId = routeCharacterId(save);
+  const castRegions = world.characters
+    .filter(c => c.role !== 'npc' && c.name.trim() && (!routeId || c.id === routeId))
+    .flatMap(characterRegions);
+  const briefPlaces = (world.placeList || [])
+    .filter(p => {
+      const t = (p.title || '').trim();
+      return t && (p.brief || '').trim() && !shownTitles.has(t) && castRegions.includes(t);
+    })
+    .slice(0, 10);
+
+  const stageId = isRoute ? null : sceneLeadOf(world, save);
+  const met = stageId ? save.state?.met?.[stageId] : undefined;
+  const metNote = met
+    ? `【你们私下见过】
+你和她在${met.time ? ` ${met.time} ` : '之前'}私下见过 ${met.visits} 次。这些事是真的发生过，但不是这一场该谈的话题：除非她主动提起，不要主动提，也不要把话往那边带。`
+    : '';
+  const resumedNote =
+    !isRoute && save.state?.resumed
+      ? `【她刚回来】
+中间隔了些日子，她有自己的事要办；别人只是各忙各的，没有谁一直在等她。开场自然带过，不要追问她做了什么，也不要替她编造。`
+      : '';
+  const dyn = dynamicBlocks(world, save);
+  const recap = isRoute ? publicRecap(parentMain, save.routeOf || null) : '';
+
+  return [
+    stateText(world, save),
+    metNote,
+    resumedNote,
+    briefPlaces.length
+      ? `【地区速查】\n${briefPlaces.map(p => `- ${p.title}：${(p.brief || '').trim()}`).join('\n')}\n（这些地方跟他或她有关，但这一场还没去、也没提到，所以只给一句概览；真要过去，或她提起了，再展开完整设定。）`
+      : '',
+    dyn.length ? dyn.map(b => `## ${b.title}\n${b.content}`).join('\n\n') : '',
+    activeNpcs.length
+      ? `【本回合可以出现的配角】\n${activeNpcs.map(charText).join('\n\n')}\n（配角只在需要的时候出现，不抢主线，不写成恋爱对象。）`
+      : '',
+    rosterNpcs.length
+      ? `【这一带的人】\n${rosterNpcs.map(n => `- ${n.name}：${n.brief || n.identity || '住在这片区域的人'}`).join('\n')}\n（只是让你知道这一带有哪些人，不必都出场；要跟其中谁说话，就点他的名字，下回合会给完整档案。没点名的只当背景。）`
+      : '',
+    recap
+      ? `【你们在主线里一起经历过的事】\n这些只有公开层面的事，发生在主线里；你们私下怎么相处不在其中，也不要主动提起。\n${recap}`
+      : '',
+  ]
+    .filter(s => s && s.trim())
+    .join('\n\n');
 }
 
 export function flatten(t: Turn): string {
@@ -646,20 +671,24 @@ export function buildMessages(
   }
 
   const parts: string[] = [];
-  const recap = save.kind === 'route' ? publicRecap(parentMain, save.routeOf || null) : '';
-  if (recap) {
-    parts.push(
-      `【你们在主线里一起经历过的事】\n这些只有公开层面的事，发生在主线里；你们私下怎么相处不在其中，也不要主动提起。\n${recap}`,
-    );
-  }
   if (memory.length) {
     parts.push(
       `【更早的经过】\n前面几回合已经滑出原文窗口，下面是当时留下的事件摘要。钱、礼物、约定、称呼都在里面，接着它们写，不要重新问已经发生过的事。\n${memory.join('\n')}`,
     );
   }
-  const memo = parts.length ? `\n\n${parts.join('\n\n')}` : '';
+  const ctx = buildTurnContext(world, save, parentMain);
+  if (ctx.trim()) parts.push(ctx);
 
-  return [{ role: 'system', content: system + memo }, ...history];
+  // 会变的东西全部拼到最后一条用户消息里，system 和历史保持原样，缓存才能续上
+  const block = parts.length ? `【本回合资料】\n${parts.join('\n\n')}\n\n` : '';
+  const last = history[history.length - 1];
+  if (last && last.role === 'user') {
+    history[history.length - 1] = { role: 'user', content: block + last.content };
+  } else if (block) {
+    history.push({ role: 'user', content: `${block}继续这一回合。` });
+  }
+
+  return [{ role: 'system', content: system }, ...history];
 }
 
 /** 最近保留原文的回合数；再往前只发章节摘要（五章 = 五十回合） */
