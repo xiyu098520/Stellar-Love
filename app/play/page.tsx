@@ -8,7 +8,7 @@ import { applyDelta, clampAttr, emptyState, seedState, snapDelta, stageOf } from
 import { advance, clockShort, clockText, clockValue, initClock } from '@/lib/clock';
 import { CHAPTER_SIZE, chapterLabel, chapterNo, chapterTurns, numberedTurns } from '@/lib/chapter';
 import { makeRouteSave } from '@/lib/routes';
-import { appendIncoming, loadThreads } from '@/lib/phone';
+import { loadThreads } from '@/lib/phone';
 import { takePendingPush } from '@/lib/phone';
 import {
   activeProfile,
@@ -760,25 +760,7 @@ function PlayInner() {
             });
           }
         }
-        // 主动手机消息：每 3 回合最多一条；同一个人没回之前最多两条
-        const idx = done.turns.filter(t => t.role === 'assistant').length;
-        const phoneAt = done.state?.phoneAt ?? -99;
-        const cands = (out?.settle?.phone || []).filter(p => p.who && p.text);
-        if (cands.length && idx - phoneAt >= 3) {
-          for (const p of cands) {
-            const c = world?.characters.find(x => x.name === p.who && x.name.trim());
-            if (!c || !p.text) continue;
-            const waiting = (loadThreads(done.id)[c.id] || []).filter(
-              m => m.role === 'them' && !m.pushed,
-            ).length;
-            if (waiting >= 2) continue;
-            appendIncoming(done.id, c.id, p.text);
-            done.state = { ...(done.state || emptyState()), phoneAt: idx };
-            await putSave(done);
-            break;
-          }
-        }
-        countPhoneLeft(done.id);
+        // 手机功能已关闭：不再生成主动消息，也不再弹通知
         // 主线里好感到了 30、他这一回合在场，就问一次要不要去见他
         if (done.kind === 'main' && world && out?.settle?.who) {
           const c = world.characters.find(x => x.role !== 'npc' && x.name === out?.settle?.who);
@@ -1205,7 +1187,7 @@ function PlayInner() {
     lastEntryNo && save.kind === 'main'
       ? ((((lastEntryNo - 1) % CHAPTER_SIZE) + 1) / CHAPTER_SIZE) * 100
       : 0;
-  const hasNotif = !!(invite || (phoneNote && phoneLeft > 0));
+  const hasNotif = !!invite;
 
   /* ---------- 回顾 ---------- */
   const revAssists = save.turns.filter(t => t.role === 'assistant').length;
@@ -1790,13 +1772,6 @@ function PlayInner() {
         {save.kind === 'route' && (
           <button className="a-back" onClick={exitRoute}>回主线</button>
         )}
-        <button
-          className="a-ibtn"
-          title="手机"
-          onClick={() => router.push(`/phone?save=${save.id}`)}
-        >
-          <IconPhone />
-        </button>
         <button className="a-ibtn" title="结算" onClick={() => router.push('/ledger')}>
           <IconReceipt />
         </button>
@@ -1976,12 +1951,6 @@ function PlayInner() {
               <b>待办</b>
               <span>{todoLabel}</span>
               <i>›</i>
-            </button>
-            <button
-              className="a-pill"
-              onClick={() => router.push(`/phone?save=${save.id}`)}
-            >
-              去手机{phoneLeft > 0 && <em>{phoneLeft}</em>}
             </button>
             <button
               className={`a-pill${dockMode === 'reply' ? ' on' : ''}`}
