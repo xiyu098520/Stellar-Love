@@ -4,7 +4,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { chat, parseJSON } from '@/lib/llm';
 import { activeBlocks, buildChapterSummaryMessages, buildMessages, touchHits } from '@/lib/prompt';
-import { applyDelta, clampAttr, emptyState, seedState, snapDelta, stageOf, trustStageOf } from '@/lib/affinity';
+import { applyDelta, clampAttr, emptyState, seedState, snapDelta, stageOf } from '@/lib/affinity';
 import { advance, clockShort, clockText, clockValue, initClock } from '@/lib/clock';
 import { CHAPTER_SIZE, chapterLabel, chapterNo, chapterTurns, numberedTurns } from '@/lib/chapter';
 import { makeRouteSave } from '@/lib/routes';
@@ -169,7 +169,7 @@ function applySettle(
       reason: (settle?.reason || '').trim() || '（没有写理由）',
       before,
       after,
-      stage: isMain ? trustStageOf(after) : stageOf(after),
+      stage: stageOf(after),
       kind: 'affinity',
     });
   }

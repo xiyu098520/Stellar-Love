@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { stageOf, trustStageOf } from '@/lib/affinity';
+import { stageOf } from '@/lib/affinity';
 import { CHAPTER_SIZE } from '@/lib/chapter';
 import { chat } from '@/lib/llm';
 import { buildChapterSummaryMessages } from '@/lib/prompt';
@@ -149,7 +149,7 @@ export default function LedgerPage() {
                   {c.chars.map(([id, v]) => (
                     <div key={id} className="ledger-bar">
                       <span>{charName(id)}</span>
-                      <span className="muted">{c.save.kind === 'main' ? trustStageOf(v) : stageOf(v)}</span>
+                      <span className="muted">{stageOf(v)}</span>
                       <span className="val">{v}</span>
                     </div>
                   ))}

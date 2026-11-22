@@ -1,7 +1,7 @@
 'use client';
 
 import type { ChatMessage } from './llm';
-import { emptyState, stageOf, trustStageOf } from './affinity';
+import { emptyState, stageOf } from './affinity';
 import { chapterLabel, chapterNo, CHAPTER_SIZE } from './chapter';
 import { clockText } from './clock';
 import type { Character, Clock, GameState, Save, Turn, World, WorldBlock } from './types';
@@ -76,7 +76,7 @@ delta：只能取 0、1、3、5、8、-1、-2、-4、-6、-8 之一。
   -4 ＝ 她托付的事，他先顾了自己。
   -6 ＝ 答应她的事没做到，也没解释。
   -8 ＝ 他看见你跟别的男人走得近（别的男主角也算，可以吃醋、可以装作没看见）。
-  这里报的是好感，不是心动：数值再高也不写情话、不写告白。
+  这里报的是好感：涨的是他肯不肯让你靠近，愿不愿意私下见你；到了相应档位，亲近会自然发生。
   什么都没发生就写 0。
 reason：一句话说明为什么，写具体的事，不写"气氛很好"。
 minutes：这一回合过去了多少分钟，只填数字，不写时刻。
@@ -123,8 +123,8 @@ function chapterText(world: World, save: Save): string {
       : '还没有给出核心线索：从世界观和开局里自己找出一个能长期追下去的事，把它当成主线核心，不要凭空结束它。',
     '不要写「第几章」「本章完」这类字样，也不要在正文里宣告阶段结束。',
     '需要换地方、换日子的时候，让事情自己把场景带过去：一件办完了，下一件自然浮上来。',
-    '主线是公开面：有别人在场时，他和你只到熟识，不外露；只有你们两个人时，可以更近，亲密尺度按下面的数值走。',
-    '这里的数值是好感：涨的是他肯不肯跟你说真话、愿不愿意约你单独见面；到了相应档位，亲近会自然发生。',
+    '有人在场的场合，他们会装作跟你只是认识；只有你们两个人在时，才把话说开、把距离缩短。这层遮掩本身就是偷情的一部分，不是禁令。',
+    '这里的数值是好感：涨的是他愿不愿意让你靠近；到了相应档位，亲近会自然发生，不必先告白。',
   ].join('\n');
 }
 
@@ -146,15 +146,6 @@ const STAGE_HINT: Record<string, string> = {
   熟: '会自己找由头见你，有一点不承认的占有欲。',
   私交: '已经说破，会在意你跟谁在一起，也会明着护你。',
   全心: '不再掂量，把你放在他自己前面。',
-};
-
-/** 主线的信任到了哪一档，态度怎么变；只说分寸，不说恋爱 */
-const TRUST_HINT: Record<string, string> = {
-  戒备: '客气，话留三分，不交底。',
-  公事: '只谈手上的事，肯听，但不主动多说。',
-  信任: '肯把一部分实情告诉你，遇事会想到你。',
-  交心: '自己的难处肯说，也肯替你担事。',
-  托付: '把最要紧的东西交到你手上，但不越界。',
 };
 
 function recentText(save: Save): { recent: string; place: string } {
@@ -381,10 +372,9 @@ function stateText(world: World, save: Save): string {
   const rows = Object.entries(st.affinity || {}).map(([id, v]) => {
     const c = world.characters.find(x => x.id === id);
     const name = c?.name || id;
-    const isMain = save.kind === 'main';
-    const shown = isMain ? Math.min(100, v) : v;
-    const stage = isMain ? trustStageOf(shown) : stageOf(shown);
-    const hint = isMain ? TRUST_HINT[stage] : STAGE_HINT[stage];
+    const shown = Math.min(100, v);
+    const stage = stageOf(shown);
+    const hint = STAGE_HINT[stage];
     const tag = '好感';
     const extra = (c?.attrs || [])
       .map(a => `${a.name} ${st.charAttrs?.[id]?.[a.id] ?? a.init}`)
@@ -462,7 +452,7 @@ ${isRoute ? '' : `
 - 默认她跟这些男主还不熟。没在已经写过的回合里正式见过面，就当第一次见面写：他不知道她是谁，她也不知道他。
 - 第一次见面，不叫昵称，不叙旧，不替她回忆“上次”“之前”“又见面了”。
 - 他知道的信息只能是当场看到、听到，或者凭职业身份查得到的；不能凭空知道她的档案、能力、委托内容，也不能说“跟你档案上的一样”。
-- 官方机构能查到登记档案，但也只知道档案上写的那几项，不知道她的私事。
+- 有权有势的人能查到一些旧档，但也只知道档案上写的那些，不知道她的私事。
 `}
 
 【没有名字的人】
