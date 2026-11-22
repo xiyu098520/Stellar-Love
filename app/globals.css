@@ -339,6 +339,68 @@ input, textarea, select { font-family: inherit; }
 .review-dlg { margin: 0 0 10px; font-size: 13px; line-height: 1.95; }
 .review-dlg span { color: var(--gold); font-size: 10px; letter-spacing: .1em; margin-right: 8px; }
 
+/* 回顾 · 章节档案 */
+.rv-head { display: flex; align-items: center; gap: 14px; padding: 14px 20px 0; }
+.rv-close { background: none; border: 0; color: var(--ink-3); font-size: 12px; letter-spacing: .08em; }
+.rv-ch { margin-left: auto; color: var(--ink-3); font-size: 11px; letter-spacing: .08em; }
+.rv-title { font-family: var(--serif); font-size: 30px; letter-spacing: .12em; padding: 8px 20px 12px; color: var(--ink); }
+.rv-body { flex: 1; overflow-y: auto; padding: 0 20px 20px; }
+.rv-intro {
+  font-family: var(--serif);
+  font-size: 13px;
+  line-height: 2;
+  color: var(--ink-2);
+  border-left: 1px solid rgba(201, 168, 106, .5);
+  padding: 2px 0 2px 12px;
+  margin: 0 0 18px;
+}
+.rv-list { border-top: 1px solid rgba(201, 168, 106, .14); padding-top: 6px; }
+.rv-line {
+  display: flex;
+  gap: 10px;
+  font-size: 12.5px;
+  line-height: 1.95;
+  color: var(--ink-2);
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, .04);
+}
+.rv-date { flex: 0 0 78px; color: var(--gold); font-size: 10.5px; letter-spacing: .04em; padding-top: 4px; }
+.rv-archive { margin: 22px 0 8px; color: var(--gold); font-size: 11px; letter-spacing: .16em; }
+.rv-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid rgba(255, 255, 255, .04); }
+.rv-no { color: var(--ink-3); font-size: 10.5px; width: 18px; }
+.rv-tx {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.8;
+  color: var(--ink-2);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.rv-undo { background: none; border: 0; color: var(--gold); font-size: 11px; }
+.rv-undo:disabled { color: var(--ink-3); opacity: .35; }
+.rv-empty { color: var(--ink-3); font-size: 12px; padding: 10px 0; }
+.rv-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px calc(16px + env(safe-area-inset-bottom));
+  border-top: 1px solid rgba(201, 168, 106, .14);
+}
+.rv-step { background: none; border: 0; color: var(--ink-2); font-size: 12px; letter-spacing: .08em; }
+.rv-step i {
+  display: inline-block;
+  width: 14px;
+  height: 1px;
+  background: var(--gold);
+  margin-right: 8px;
+  vertical-align: middle;
+}
+.rv-step em { font-style: normal; color: var(--ink-3); font-size: 10.5px; margin-left: 6px; }
+.rv-step:disabled { opacity: .4; }
+.rv-go { background: none; border: 0; color: var(--ink); font-family: var(--serif); font-size: 15px; letter-spacing: .12em; }
+
 /* 角色的语音库 */
 .voice-lib { margin-top: 18px; padding-top: 14px; border-top: 1px solid rgba(201, 168, 106, .16); }
 .voice-lib-head {

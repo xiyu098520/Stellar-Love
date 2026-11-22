@@ -690,6 +690,15 @@ function PlayInner() {
           turns: [...nextSave.turns, turn],
           state: settled,
           undo,
+          checkpoints: [
+            ...(nextSave.checkpoints || []),
+            {
+              at: nextSave.turns.length - 1,
+              state: base,
+              wallet: undo.wallet || { money: 0, coins: 0, inventory: {}, ledger: [], gifts: [] },
+              summaries: nextSave.summaries || [],
+            },
+          ].slice(-15),
           updatedAt: Date.now(),
         };
         // 钱和抽卡币：这一回合真的变了才记，每一回合都发抽卡币
@@ -1003,6 +1012,35 @@ function PlayInner() {
     await run(next, extra);
   }
 
+  /** 按回合退回：恢复那一回合开始前的状态 */
+  async function rollbackTo(at: number) {
+    if (!save || busy) return;
+    const cp = (save.checkpoints || []).find(c => c.at === at);
+    if (!cp) {
+      setErr('这一回合太早，退不回去了。');
+      return;
+    }
+    audioRef.current?.pause();
+    setSpeaking('');
+    const next: Save = {
+      ...save,
+      turns: save.turns.slice(0, at),
+      state: cp.state,
+      summaries: cp.summaries,
+      checkpoints: (save.checkpoints || []).filter(c => c.at < at),
+      undo: undefined,
+      updatedAt: Date.now(),
+    };
+    if (world && cp.wallet) {
+      saveWallet(world.id, cp.wallet);
+      setMoney(cp.wallet.money);
+    }
+    await putSave(next);
+    setSave(next);
+    setSeen(9999);
+    setReview(false);
+  }
+
   if (!save) {
     return (
       <main className="page">
@@ -1147,6 +1185,40 @@ function PlayInner() {
       ? ((((lastEntryNo - 1) % CHAPTER_SIZE) + 1) / CHAPTER_SIZE) * 100
       : 0;
   const hasNotif = !!(invite || (phoneNote && phoneLeft > 0));
+
+  /* ---------- 回顾 ---------- */
+  const revAssists = save.turns.filter(t => t.role === 'assistant').length;
+  const revCh = Math.max(1, Math.floor((Math.max(revAssists, 1) - 1) / CHAPTER_SIZE) + 1);
+  const revStart = (revCh - 1) * CHAPTER_SIZE;
+  const revTimes = new Map<number, string>();
+  {
+    let n = 0;
+    for (const t of save.turns) {
+      if (t.role === 'assistant') {
+        n += 1;
+        if (t.time) revTimes.set(n, t.time);
+      }
+    }
+  }
+  const revSums = (save.summaries || []).slice(-8);
+  const revIntro =
+    (save.summaries || []).find(s => s.turn === revCh * CHAPTER_SIZE)?.text ||
+    (world?.outline || '').split('\n').find(l => l.trim())?.slice(0, 90) ||
+    '';
+  const revInputs: { i: number; text: string; no: number }[] = [];
+  {
+    let n = 0;
+    save.turns.forEach((t, i) => {
+      if (t.role === 'assistant') {
+        n += 1;
+        return;
+      }
+      const no = n + 1;
+      if (no > revStart && no <= revStart + CHAPTER_SIZE) {
+        revInputs.push({ i, text: t.text, no });
+      }
+    });
+  }
 
   /* ---------- 主线：阅读式 ---------- */
 
@@ -1512,8 +1584,8 @@ function PlayInner() {
             <button className={todoOpen ? 'on' : ''} onClick={() => setTodoOpen(v => !v)}>
               待办 <i>{todoLabel}</i>
             </button>
-            <button onClick={() => router.push(`/phone?save=${save.id}`)}>
-              手机{phoneLeft > 0 && <em>{phoneLeft}</em>}
+            <button onClick={() => setReview(true)}>
+              回顾
             </button>
             <button
               className={dockMode === 'reply' ? 'on' : ''}
@@ -1898,35 +1970,43 @@ function PlayInner() {
       {review && (
         <div className="review-mask">
           <div className="review-panel">
-            <div className="topbar">
-              <button className="back" onClick={() => setReview(false)}>关闭</button>
-              <div className="title">剧情回顾</div>
-              <div className="right">{save.turns.filter(t => t.role === 'assistant').length} 回合</div>
+            <div className="rv-head">
+              <button className="rv-close" onClick={() => setReview(false)}>‹ 返回</button>
+              <div className="rv-ch">第 {revCh} 章 · {revAssists} 回合</div>
             </div>
-            <div className="review-body">
-              {!save.turns.length && <div className="muted">还没有内容。</div>}
-              {save.turns.map((t, i) =>
-                t.role === 'user' ? (
-                  <div className="review-you" key={i}>你：{t.text}</div>
-                ) : (
-                  <div className="review-turn" key={i}>
-                    <div className="meta">
-                      {t.time || ''}
-                      {t.place ? ` · ${t.place}` : ''}
-                    </div>
-                    {(t.segments || []).map((seg, k) =>
-                      seg.type === 'dialogue' ? (
-                        <div className="review-dlg" key={k}>
-                          <span>{seg.who}</span>
-                          {seg.text}
-                        </div>
-                      ) : (
-                        <p className="narr" key={k}>{seg.text}</p>
-                      ),
-                    )}
+            <div className="rv-title">回顾</div>
+            <div className="rv-body">
+              {revIntro && <div className="rv-intro">{revIntro}</div>}
+              <div className="rv-list">
+                {!revSums.length && <div className="rv-empty">还没有可以回顾的内容。</div>}
+                {revSums.map(s => (
+                  <div className="rv-line" key={s.turn}>
+                    <span className="rv-date">{revTimes.get(s.turn) || '——'}</span>
+                    <span>{s.text}</span>
                   </div>
-                ),
-              )}
+                ))}
+              </div>
+              <div className="rv-archive">重写本章档案</div>
+              {revInputs.map(r => (
+                <div className="rv-row" key={r.i}>
+                  <span className="rv-no">{String(r.no).padStart(2, '0')}</span>
+                  <span className="rv-tx">{r.text}</span>
+                  <button
+                    className="rv-undo"
+                    disabled={busy || !(save.checkpoints || []).some(c => c.at === r.i)}
+                    onClick={() => rollbackTo(r.i)}
+                  >
+                    退回
+                  </button>
+                </div>
+              ))}
+              {!revInputs.length && <div className="rv-empty">本章还没有你的记录。</div>}
+            </div>
+            <div className="rv-foot">
+              <button className="rv-step" disabled={!save.undo || busy} onClick={undoLast}>
+                <i />退一步 <em>退掉的不留</em>
+              </button>
+              <button className="rv-go" onClick={() => setReview(false)}>去开演 →</button>
             </div>
           </div>
         </div>

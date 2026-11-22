@@ -356,6 +356,13 @@ export type Save = {
   summaries?: TurnSummary[];
   /** 只留一级：撤回上一回合 */
   undo?: UndoSnapshot;
+  /** 每回合开始前的快照，供回顾页按回合退回 */
+  checkpoints?: {
+    at: number;
+    state: GameState;
+    wallet: Wallet;
+    summaries: TurnSummary[];
+  }[];
   createdAt: number;
   updatedAt: number;
 };
