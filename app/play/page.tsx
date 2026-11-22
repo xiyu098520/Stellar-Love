@@ -1592,7 +1592,7 @@ function PlayInner() {
             <div className="m-modal" onClick={e => e.stopPropagation()}>
               <div className="k">PERSONAL ROUTE · {invite.name}</div>
               <div className="t">他想见你</div>
-              <div className="d">主线的信任到这儿就是极限了。再往下走，只能去他的个人线。</div>
+              <div className="d">好感到这儿就是极限了。再往下走，只能去他的个人线。</div>
               <div className="acts">
                 <button className="primary" disabled={busy} onClick={acceptInvite}>去见他</button>
                 <button disabled={busy} onClick={postponeInvite}>改约 · 过两天</button>

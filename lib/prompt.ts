@@ -22,9 +22,9 @@ const FORMAT = `只输出一个 JSON 对象，不要任何解释、不要代码�
               "attrs": [{ "who": "", "name": "金钱", "delta": -38, "reason": "买了一杯手冲" }] }
 }
 tone 可选，只能是 sighs、whispers、softly、laughs、sad、happy、angry、excited、nervous、calm、tired、sarcastic 之一。
-segments 至少 6 段、正文合计 800 到 1600 字。她一次读不完，所以每一段都要短：叙述一句到两句，台词一条一句，不要出现整段大块文字。
+segments 至少 4 段、正文合计 800 到 1600 字。她一次读不完，所以每一段都要短：叙述一句到两句，台词一条一句，不要出现整段大块文字。
 只要有人开口，就必须单独占一条 dialogue，一句台词一条；同一个人连说三句，就写成三条 dialogue，不要把三句塞进一条。
-没有名字的人（店员、员工、助理、路人）开口时，who 写身份称呼，例如「便利店店员」。choices 给 2 到 4 条，每条不超过 18 字，写成她能做的事，不写心理活动。`;
+没有名字的人（店员、员工、助理、路人）开口时，who 写身份称呼，例如「便利店店员」。choices 固定给 2 条，每条不超过 18 字，写成她能做的事，不写心理活动。`;
 
 const JA_RULE = `
 每条 dialogue 额外给一个 "ja"：这句台词的自然日文口语（动漫对话那种，不要敬语腔，不要逐字直译），称呼、人称和情绪跟原句一致，ja 里不要写方括号标记。narration 不要 ja，text 照旧用中文。`;
@@ -75,8 +75,8 @@ delta：只能取 0、1、3、5、8、-1、-2、-4、-6、-8 之一。
   -2 ＝ 她问的事，他绕开了。
   -4 ＝ 她托付的事，他先顾了自己。
   -6 ＝ 答应她的事没做到，也没解释。
-  -8 ＝ 他看见你跟别的男人走得近（只能是没有名字的人，绝不能是另一个男主角）。
-  这里报的是信任，不是心动：数值再高也不写情话、不写告白。
+  -8 ＝ 他看见你跟别的男人走得近（别的男主角也算，可以吃醋、可以装作没看见）。
+  这里报的是好感，不是心动：数值再高也不写情话、不写告白。
   什么都没发生就写 0。
 reason：一句话说明为什么，写具体的事，不写"气氛很好"。
 minutes：这一回合过去了多少分钟，只填数字，不写时刻。
@@ -95,23 +95,23 @@ attrs：这一回合真正变动的自定义数值，写成数组；没有变动
   钱花出去、赚进来，都要报；不许直接改写余额，只报增减。
 同一件事只算一次，不要反复加。`;
 
-/** 主线是多人同台：每个人只知道自己那一份，互不串消息 */
+/** 主线是多人同台：男主可以互相认识、竞争，也可以和平共处 */
 const MAIN_ISOLATION = `【主线 · 多人同台】
-这一场是公开场合，几位男主角各有各的目标。
-- 每个人只知道他自己和你之间发生过的事；他们彼此不熟识，也不清楚你跟别人私下怎么相处。
-- 不打听、不提起你和别的男人的私事，不暗示他们互相认识，也不替别人转述。
-- 你和他之间可以亲近、可以动心，但只发生在你们两个人之间；同一场里有别人时，不外露。
-- 不要凭空让两个男主角聊起你，也不要写他们交换关于你的消息、互相吃醋或结盟。`;
+这一场可以只有一个人，也可以几个人同时在。
+- 男主角之间可以认识，也可以不认识；认识的话，可能是同事、旧识、对手，也可能只是听说过。
+- 他们可以竞争、试探、互相拆台，也可以客气地和平共处。吃醋、结盟、交换消息都可以写，但要符合各自的性格和立场。
+- 每场有一个主视角：谁在跟她说重要的话，谁就是这一场的主；其他人不抢戏，也不长篇大论。
+- 不要为了热闹把所有人都塞进来；不在场的人就不出现。`;
 
 /** 主线：没有章节、没有终点，靠一条核心线索一直往下接；个人线只写两个人 */
 function chapterText(world: World, save: Save): string {
   if (save.kind === 'route') {
     return [
       '【个人线】',
-      '这条线里只有你和他，没有主线任务，也没有别人来打断；别的男主角不存在，也不要提起。',
-      '这条线里发生的事不会回到主线，也不会让别的男主角知道；反过来，你只记得主线里和他公开层面的相处。',
+      '这是主线之外的空档，只有你和他，没有案子，也没有别人来打断。',
+      '他不是失忆：主线里见过、说过的事，他都记得；别人不知道细节，也不会强行追问。',
       '时间一直往前，不用急着收尾；每一次见面都可以比上一次更近一点。',
-      '这里报的数值是羁绊，按现在的数值走，不要硬压回 30，也不要凭空跳到下一档。',
+      '这里报的数值是好感，按现在的数值走，不要硬压，也不要凭空跳档。',
     ].join('\n');
   }
   const core = (world.outline || '').trim();
@@ -124,7 +124,7 @@ function chapterText(world: World, save: Save): string {
     '不要写「第几章」「本章完」这类字样，也不要在正文里宣告阶段结束。',
     '需要换地方、换日子的时候，让事情自己把场景带过去：一件办完了，下一件自然浮上来。',
     '主线是公开面：有别人在场时，他和你只到熟识，不外露；只有你们两个人时，可以更近，亲密尺度按下面的数值走。',
-    '主线里的数值是信任：涨的是他肯不肯跟你说真话、愿不愿意约你单独见面；到了相应档位，亲近会自然发生。',
+    '这里的数值是好感：涨的是他肯不肯跟你说真话、愿不愿意约你单独见面；到了相应档位，亲近会自然发生。',
   ].join('\n');
 }
 
@@ -388,7 +388,7 @@ function stateText(world: World, save: Save): string {
     const shown = isMain ? Math.min(100, v) : v;
     const stage = isMain ? trustStageOf(shown) : stageOf(shown);
     const hint = isMain ? TRUST_HINT[stage] : STAGE_HINT[stage];
-    const tag = isMain ? '信任' : '羁绊';
+    const tag = '好感';
     const extra = (c?.attrs || [])
       .map(a => `${a.name} ${st.charAttrs?.[id]?.[a.id] ?? a.init}`)
       .join('，');
@@ -486,7 +486,7 @@ export function buildSystem(world: World, save: Save, lang: 'zh' | 'ja' = 'zh'):
 【玩法】
 ${isRoute
   ? '这是某个人的个人线：只写这一个男主角和她的相处，其他男主角不在场、也不会被提及姓名。'
-  : '这是主线：男主角都可以出现，但每一场只写其中一个；其他人在场也只是没有名字的背景。'}
+  : '这是主线：男主角都可以出现，可以只写一个，也可以在同一个场面里出现几位。有人在场时主次分明，谁在跟她说重要的话，谁就是这一场的主。'}
 
 【世界观】
 ${blocksText(world, save)}
@@ -505,7 +505,7 @@ ${isRoute ? '' : `
 - 路过、顺路、恰好经过、来讨杯茶，都不算理由。
 - 第一次登场之前要先有铺垫：前一两回合提到他的名字、他的东西、他所在的区，或者让委托人提起他。没有铺垫，就不要让他出现。
 - 开场前两回合，除非她主动联系或直接去找，男主不出场。
-- 同一场只出现一位男主；他来了之后，其他人不出场，也不被提起。
+- 同一场可以出现多位男主，但只让一个人在说话；其他人在场就写他们的动静，不要抢话。
 - 她没去找、也没被卷进他的事时，这一回合就只写委托和日常，不要为了热闹把男主塞进来。
 
 【认识程度】
@@ -568,12 +568,6 @@ export function sceneLeadOf(world: World, save: Save): string | undefined {
   return undefined;
 }
 
-/** 没有标明在场者的回合按公开场面处理；标了别人的，不带进这一场 */
-function belongsToScene(t: Turn, lead?: string): boolean {
-  if (!lead || !t.with) return true;
-  return t.with === lead;
-}
-
 /** 个人线开局时，把他和她在主线公开层面的经过带几条过来 */
 function publicRecap(main: Save | undefined, cid: string | null): string {
   if (!main || !cid) return '';
@@ -605,8 +599,8 @@ export function buildMessages(
     if (s.turn % CHAPTER_SIZE === 0) chapterSums.set(s.turn / CHAPTER_SIZE, s.text);
   }
   const total = save.turns.filter(t => t.role === 'assistant').length;
-  const cut = Math.max(0, total - KEEP_ROUNDS);
-  const lead = sceneLeadOf(world, save);
+  // 1–5 章全给原文；跨进第 6 章时整章换掉第 1 章，之后每过一章换一章
+  const cut = total > KEEP_ROUNDS ? Math.ceil((total - KEEP_ROUNDS) / CHAPTER_SIZE) * CHAPTER_SIZE : 0;
   let no = 0;
 
   for (const t of save.turns) {
@@ -616,14 +610,13 @@ export function buildMessages(
       const chSum = chapterSums.get(ch);
       // 这一章已经有回顾：只用回顾，不再逐回合复述
       if (chSum && ch * CHAPTER_SIZE <= cut) {
-        if (t.role === 'assistant' && no === ch * CHAPTER_SIZE && belongsToScene(t, lead)) {
+        if (t.role === 'assistant' && no === ch * CHAPTER_SIZE) {
           memory.push(`- 第 ${ch} 章${t.time ? `（${t.time}）` : ''}：${chSum}`);
         }
         continue;
       }
       // 还没到章末：有摘要就只发摘要，没有就用一小截原文兜底
       if (t.role === 'assistant') {
-        if (!belongsToScene(t, lead)) continue;
         const s = sums.get(no);
         const label = chapterLabel(no);
         memory.push(s ? `- ${label}：${s}` : `- ${label}：${flatten(t).slice(0, 160)}`);
@@ -632,8 +625,6 @@ export function buildMessages(
       }
       continue;
     }
-    // 别的男主角的私人场面，不带进这一场
-    if (t.role === 'assistant' && !belongsToScene(t, lead)) continue;
     history.push({ role: t.role, content: flatten(t) });
   }
 

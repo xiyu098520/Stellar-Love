@@ -177,7 +177,7 @@ export default function RoutesPage() {
                     {[r.c.identity, characterRegions(r.c).join(' / ')].filter(Boolean).join(' · ')}
                     {r.route
                       ? ` · 上次 ${r.route.state?.time || '——'}${r.route.state?.place ? ` ${r.route.state.place}` : ''}`
-                      : ` · 信任 ${r.value} / 100`}
+                      : ` · 好感 ${r.value} / 100`}
                   </span>
                   <span className="s-dots">
                     {Array.from({ length: 10 }).map((_, k) => (
