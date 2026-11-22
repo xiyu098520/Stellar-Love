@@ -3,10 +3,10 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { chat, parseJSON } from '@/lib/llm';
-import { activeBlocks, buildMessages, buildSummaryMessages, touchHits } from '@/lib/prompt';
+import { activeBlocks, buildChapterSummaryMessages, buildMessages, touchHits } from '@/lib/prompt';
 import { applyDelta, clampAttr, emptyState, seedState, snapDelta, stageOf, trustStageOf } from '@/lib/affinity';
 import { advance, clockShort, clockText, clockValue, initClock } from '@/lib/clock';
-import { CHAPTER_SIZE, chapterLabel, chapterTurns, numberedTurns } from '@/lib/chapter';
+import { CHAPTER_SIZE, chapterLabel, chapterNo, chapterTurns, numberedTurns } from '@/lib/chapter';
 import { makeRouteSave } from '@/lib/routes';
 import { appendIncoming, loadThreads } from '@/lib/phone';
 import { takePendingPush } from '@/lib/phone';
@@ -523,15 +523,28 @@ function PlayInner() {
     }
   }
 
-  /** 一回合结束就在后台摘一次；摘要只给以后用，不影响这一段正文 */
-  const summarizeTurn = useCallback(
-    async (done: Save, turnNo: number, turn: Turn, herWords: string) => {
+  /** 一章结束（第 10、20…回合）在后台摘一次；摘要在滑出窗口后才用 */
+  const summarizeChapter = useCallback(
+    async (done: Save, turnNo: number) => {
+      if (turnNo % CHAPTER_SIZE !== 0) return;
       if (!settings || !world) return;
       const profile = activeProfile(settings, 'assistant');
       if (!profile.baseUrl.trim() || !profile.model.trim()) return;
       try {
-        const raw = await chat(profile, buildSummaryMessages(world, done, turn, herWords), {
-          maxTokens: 300,
+        const ch = chapterNo(turnNo);
+        const all = numberedTurns(done.turns);
+        const blocks: string[] = [];
+        for (let i = 0; i < all.length; i++) {
+          const cur = all[i];
+          if (cur.turn.role !== 'assistant') continue;
+          if (cur.no < (ch - 1) * CHAPTER_SIZE + 1 || cur.no > ch * CHAPTER_SIZE) continue;
+          const prev = all[i - 1];
+          const her = prev && prev.turn.role === 'user' ? prev.turn.text.trim() : '';
+          blocks.push([her ? `她说：${her}` : '', cur.turn.text].filter(Boolean).join('\n'));
+        }
+        if (!blocks.length) return;
+        const raw = await chat(profile, buildChapterSummaryMessages(world, done, ch, blocks), {
+          maxTokens: 700,
         });
         const text = raw
           .replace(/["“”]/g, '')
@@ -540,17 +553,18 @@ function PlayInner() {
         if (!text) return;
         const latest = await getSave(done.id);
         if (!latest) return;
+        const before = done.turns.filter(t => t.role === 'assistant')[turnNo - 1];
         const target = latest.turns.filter(t => t.role === 'assistant')[turnNo - 1];
         // 中途撤回或重写过，就对不上，不写
-        if (!target || target.text !== turn.text) return;
+        if (!before || !target || target.text !== before.text) return;
         const summaries = [
           ...(latest.summaries || []).filter(s => s.turn !== turnNo),
-          { turn: turnNo, text: text.slice(0, 120), at: Date.now() },
+          { turn: turnNo, text: text.slice(0, 400), at: Date.now() },
         ].sort((a, b) => a.turn - b.turn);
         await putSave({ ...latest, summaries });
         setSave(cur => (cur && cur.id === latest.id ? { ...cur, summaries } : cur));
       } catch {
-        // 摘要失败就算了，下回合再说
+        // 摘要失败就算了，下一章再说
       }
     },
     [settings, world],
@@ -750,9 +764,7 @@ function PlayInner() {
         }
         setSeen(1);
         setSave(done);
-        const last = nextSave.turns[nextSave.turns.length - 1];
-        const herWords = last && last.role === 'user' ? last.text : '';
-        void summarizeTurn(done, done.turns.filter(t => t.role === 'assistant').length, turn, herWords);
+        void summarizeChapter(done, done.turns.filter(t => t.role === 'assistant').length);
       } catch (e) {
         setErr(e instanceof Error ? e.message : '生成失败');
         const failed: Save = { ...nextSave, undo, updatedAt: Date.now() };
@@ -762,7 +774,7 @@ function PlayInner() {
         setBusy(false);
       }
     },
-    [world, settings, summarizeTurn],
+    [world, settings, summarizeChapter],
   );
 
   async function begin() {

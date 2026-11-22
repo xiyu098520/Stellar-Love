@@ -3,9 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { stageOf, trustStageOf } from '@/lib/affinity';
-import { chapterLabel } from '@/lib/chapter';
+import { CHAPTER_SIZE } from '@/lib/chapter';
 import { chat } from '@/lib/llm';
-import { buildSummaryMessages } from '@/lib/prompt';
+import { buildChapterSummaryMessages } from '@/lib/prompt';
 import { activeProfile, listSaves, loadSettings, loadWorld, putSave } from '@/lib/store';
 import type { AffinityEntry, Save, Settings, Wallet, World } from '@/lib/types';
 import { loadWallet } from '@/lib/wallet';
@@ -33,8 +33,8 @@ export default function LedgerPage() {
     });
   }, []);
 
-  /** 手动重摘一回合：跟跑剧情时用的是同一套提示词 */
-  async function regen(save: Save, turnNo: number) {
+  /** 手动重摘一章：跟跑剧情时用的是同一套提示词 */
+  async function regen(save: Save, ch: number) {
     if (!world || !settings) return;
     const profile = activeProfile(settings, 'assistant');
     if (!profile.baseUrl.trim() || !profile.model.trim()) {
@@ -42,23 +42,32 @@ export default function LedgerPage() {
       return;
     }
     const assistants = save.turns.filter(t => t.role === 'assistant');
-    const turn = assistants[turnNo - 1];
-    if (!turn) return;
-    const idx = save.turns.indexOf(turn);
-    const prev = save.turns[idx - 1];
-    const herWords = prev && prev.role === 'user' ? prev.text : '';
-    const key = `${save.id}:${turnNo}`;
+    if (assistants.length < ch * CHAPTER_SIZE) {
+      alert('这一章还没写完，写满十回合再总结。');
+      return;
+    }
+    const blocks: string[] = [];
+    for (let n = (ch - 1) * CHAPTER_SIZE + 1; n <= ch * CHAPTER_SIZE; n++) {
+      const t = assistants[n - 1];
+      if (!t) continue;
+      const idx = save.turns.indexOf(t);
+      const prev = save.turns[idx - 1];
+      const herWords = prev && prev.role === 'user' ? prev.text.trim() : '';
+      blocks.push([herWords ? `她说：${herWords}` : '', t.text].filter(Boolean).join('\n'));
+    }
+    const turnNo = ch * CHAPTER_SIZE;
+    const key = `${save.id}:ch${ch}`;
     setRunning(key);
     try {
-      const raw = await chat(profile, buildSummaryMessages(world, save, turn, herWords), {
-        maxTokens: 300,
+      const raw = await chat(profile, buildChapterSummaryMessages(world, save, ch, blocks), {
+        maxTokens: 700,
       });
       const text = raw
         .replace(/["“”]/g, '')
         .replace(/\s+/g, ' ')
         .trim()
-        .slice(0, 120);
-      if (!text) throw new Error('模型没给出摘要');
+        .slice(0, 400);
+      if (!text) throw new Error('模型没给出总结');
       const next: Save = {
         ...save,
         summaries: [
@@ -166,12 +175,13 @@ export default function LedgerPage() {
             </>
           )}
 
-          <div className="section-title" style={{ marginTop: 26 }}>回合摘要</div>
+          <div className="section-title" style={{ marginTop: 26 }}>章节总结</div>
           {summarySaves.length === 0 && (
-            <div className="muted">还没有回合。跑一回合，后台就会摘一条放在这里。</div>
+            <div className="muted">还没有回合。跑满一章，后台就会摘一条放在这里。</div>
           )}
           {summarySaves.map(s => {
             const assistants = s.turns.filter(t => t.role === 'assistant');
+            const chapters = Math.max(1, Math.ceil(assistants.length / CHAPTER_SIZE));
             const sums = new Map((s.summaries || []).map(x => [x.turn, x.text]));
             return (
               <div key={s.id} className="ledger-card">
@@ -181,25 +191,34 @@ export default function LedgerPage() {
                     {s.kind === 'main' ? '主线' : s.kind === 'route' ? '个人线' : '番外'} · {assistants.length} 回合
                   </span>
                 </div>
-                {assistants.map((t, i) => {
-                  const no = i + 1;
-                  const text = sums.get(no);
-                  const key = `${s.id}:${no}`;
+                {Array.from({ length: chapters }, (_, i) => i + 1).map(ch => {
+                  const end = Math.min(ch * CHAPTER_SIZE, assistants.length);
+                  const last = assistants[end - 1];
+                  const text = sums.get(ch * CHAPTER_SIZE);
+                  const key = `${s.id}:ch${ch}`;
+                  const complete = assistants.length >= ch * CHAPTER_SIZE;
                   return (
-                    <div key={no} className="sum-row">
+                    <div key={ch} className="sum-row">
                       <div className="sum-head">
-                        <span>{s.kind === 'main' ? chapterLabel(no) : `第 ${no} 回合`}</span>
-                        <span className="muted">{t.time || ''}</span>
+                        <span>
+                          {s.kind === 'main'
+                            ? `第 ${ch} 章 · ${(ch - 1) * CHAPTER_SIZE + 1}-${ch * CHAPTER_SIZE}`
+                            : `第 ${ch} 章`}
+                        </span>
+                        <span className="muted">
+                          {last?.time || ''}
+                          {last?.place ? ` · ${last.place}` : ''}
+                        </span>
                         <button
                           className="mini"
-                          disabled={running === key}
-                          onClick={() => regen(s, no)}
+                          disabled={!complete || running === key}
+                          onClick={() => regen(s, ch)}
                         >
-                          {running === key ? '生成中' : text ? '重新生成' : '生成'}
+                          {running === key ? '生成中' : !complete ? '未写满' : text ? '重新生成' : '生成'}
                         </button>
                       </div>
                       <div className={text ? 'sum-text' : 'sum-text empty'}>
-                        {text || '还没生成'}
+                        {text || (complete ? '还没生成' : '写满十回合后自动总结')}
                       </div>
                     </div>
                   );

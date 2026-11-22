@@ -2,7 +2,7 @@
 
 import type { ChatMessage } from './llm';
 import { emptyState, stageOf, trustStageOf } from './affinity';
-import { chapterLabel } from './chapter';
+import { chapterLabel, chapterNo, CHAPTER_SIZE } from './chapter';
 import { clockText } from './clock';
 import type { Character, Clock, GameState, Save, Turn, World, WorldBlock } from './types';
 import { characterRegions } from './types';
@@ -599,6 +599,11 @@ export function buildMessages(
   const history: ChatMessage[] = [];
   const memory: string[] = [];
   const sums = new Map((save.summaries || []).map(s => [s.turn, s.text]));
+  // 一章一条的回顾，存在这一章最后一回合的位置
+  const chapterSums = new Map<number, string>();
+  for (const s of save.summaries || []) {
+    if (s.turn % CHAPTER_SIZE === 0) chapterSums.set(s.turn / CHAPTER_SIZE, s.text);
+  }
   const total = save.turns.filter(t => t.role === 'assistant').length;
   const cut = Math.max(0, total - KEEP_ROUNDS);
   const lead = sceneLeadOf(world, save);
@@ -607,7 +612,16 @@ export function buildMessages(
   for (const t of save.turns) {
     if (t.role === 'assistant') no += 1;
     if (cut > 0 && no <= cut) {
-      // 已经滑出窗口：有摘要就只发摘要，没有就用一小截原文兜底
+      const ch = chapterNo(no);
+      const chSum = chapterSums.get(ch);
+      // 这一章已经有回顾：只用回顾，不再逐回合复述
+      if (chSum && ch * CHAPTER_SIZE <= cut) {
+        if (t.role === 'assistant' && no === ch * CHAPTER_SIZE && belongsToScene(t, lead)) {
+          memory.push(`- 第 ${ch} 章${t.time ? `（${t.time}）` : ''}：${chSum}`);
+        }
+        continue;
+      }
+      // 还没到章末：有摘要就只发摘要，没有就用一小截原文兜底
       if (t.role === 'assistant') {
         if (!belongsToScene(t, lead)) continue;
         const s = sums.get(no);
@@ -657,8 +671,8 @@ export function buildMessages(
   return [{ role: 'system', content: system + memo }, ...history];
 }
 
-/** 最近保留原文的回合数；再往前只发摘要 */
-export const KEEP_ROUNDS = 5;
+/** 最近保留原文的回合数；再往前只发章节摘要（五章 = 五十回合） */
+export const KEEP_ROUNDS = CHAPTER_SIZE * 5;
 
 const SUMMARY_RULE = `你在给一段中文乙女游戏剧情做事件摘要。只写事实，不写文笔。
 要求：
@@ -689,6 +703,35 @@ export function buildSummaryMessages(
       content: `${who ? `这条线是${who}。` : ''}地点：${
         turn.place || save.state?.place || '未写明'
       }；时间：${turn.time || save.state?.time || '未写明'}。\n\n${body}`,
+    },
+  ];
+}
+
+const CHAPTER_SUMMARY_RULE = `你在给一段中文乙女游戏剧情做章节回顾。只写事实，不写文笔。
+要求：
+- 三百字以内，能更短就短，不要硬凑。
+- 按顺序写清这一章发生了什么：接了什么委托、查到什么、见了谁、答应了什么、关系有什么变化。
+- 钱写清：谁给谁多少、为什么。
+- 重要的物品、线索、约定写清楚。
+- 称呼变化、身份线索、关系变化，一句话带过。
+- 删掉天气、环境、形容词、心理描写和语气词。
+- 不要编造没发生的事。
+- 直接输出回顾正文，不要标题、引号、项目符号，也不要 JSON。`;
+
+/** 一章结束时摘一次，存到这一章最后一回合的位置 */
+export function buildChapterSummaryMessages(
+  world: World,
+  save: Save,
+  chapter: number,
+  blocks: string[],
+): ChatMessage[] {
+  const onRoute = save.kind === 'route' && save.routeOf;
+  const who = onRoute ? world.characters.find(c => c.id === save.routeOf)?.name : '';
+  return [
+    { role: 'system', content: CHAPTER_SUMMARY_RULE },
+    {
+      role: 'user',
+      content: `${who ? `这条线是${who}。` : ''}这是第 ${chapter} 章。\n\n${blocks.join('\n\n---\n\n')}`,
     },
   ];
 }
