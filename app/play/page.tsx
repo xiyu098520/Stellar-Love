@@ -1352,6 +1352,51 @@ function PlayInner() {
             </div>
           </section>
         )}
+
+        {review && (
+          <div className="review-mask">
+            <div className="review-panel">
+              <div className="rv-head">
+                <button className="rv-close" onClick={() => setReview(false)}>‹ 返回</button>
+                <div className="rv-ch">第 {revCh} 章 · {revAssists} 回合</div>
+              </div>
+              <div className="rv-title">回顾</div>
+              <div className="rv-body">
+                {revIntro && <div className="rv-intro">{revIntro}</div>}
+                <div className="rv-list">
+                  {!revSums.length && <div className="rv-empty">还没有可以回顾的内容。</div>}
+                  {revSums.map(s => (
+                    <div className="rv-line" key={s.turn}>
+                      <span className="rv-date">{revTimes.get(s.turn) || '——'}</span>
+                      <span>{s.text}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="rv-archive">重写本章档案</div>
+                {revInputs.map(r => (
+                  <div className="rv-row" key={r.i}>
+                    <span className="rv-no">{String(r.no).padStart(2, '0')}</span>
+                    <span className="rv-tx">{r.text}</span>
+                    <button
+                      className="rv-undo"
+                      disabled={busy || !(save.checkpoints || []).some(c => c.at === r.i)}
+                      onClick={() => rollbackTo(r.i)}
+                    >
+                      退回
+                    </button>
+                  </div>
+                ))}
+                {!revInputs.length && <div className="rv-empty">本章还没有你的记录。</div>}
+              </div>
+              <div className="rv-foot">
+                <button className="rv-step" disabled={!save.undo || busy} onClick={undoLast}>
+                  <i />退一步 <em>退掉的不留</em>
+                </button>
+                <button className="rv-go" onClick={() => setReview(false)}>去开演 →</button>
+              </div>
+            </div>
+          </div>
+        )}
       </>
     );
 
