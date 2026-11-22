@@ -269,6 +269,8 @@ function PlayInner() {
   const [wallBlur, setWallBlur] = useState(2);
   const [wallDim, setWallDim] = useState(45);
   const wallFileRef = useRef<HTMLInputElement>(null);
+  const [regenOpen, setRegenOpen] = useState(false);
+  const [regenNote, setRegenNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [draft, setDraft] = useState('');
@@ -555,7 +557,7 @@ function PlayInner() {
   );
 
   const run = useCallback(
-    async (nextSave: Save) => {
+    async (nextSave: Save, extra?: string) => {
       if (!world || !settings) return;
       setBusy(true);
       setErr('');
@@ -583,6 +585,12 @@ function PlayInner() {
             ? (await getSave(seeded.parentId)) || undefined
             : undefined,
         );
+        if (extra?.trim()) {
+          messages[0] = {
+            ...messages[0],
+            content: `${messages[0].content}\n\n【本次重写要求】${extra.trim()}`,
+          };
+        }
         const storyApi = activeProfile(settings, 'story');
         const parseOut = (s: string): ModelOut | null => {
           try {
@@ -938,7 +946,7 @@ function PlayInner() {
   }
 
   /** 重写这一回合：保留这句输入，只退掉上一条回复和结算，再重新生成 */
-  async function regenerate() {
+  async function regenerate(extra?: string) {
     if (!save || busy) return;
     const u = save.undo;
     const last = save.turns[save.turns.length - 1];
@@ -980,7 +988,7 @@ function PlayInner() {
     }
     setSeen(9999);
     setSave(next);
-    await run(next);
+    await run(next, extra);
   }
 
   if (!save) {
@@ -1226,7 +1234,14 @@ function PlayInner() {
         )}
 
         <div className="m-now">
-          <button className="m-again" onClick={regenerate} disabled={busy || !save.undo}>
+          <button
+            className="m-again"
+            onClick={() => {
+              setRegenNote('');
+              setRegenOpen(true);
+            }}
+            disabled={busy || !save.undo}
+          >
             重写
           </button>
           <div className="when">
@@ -1722,12 +1737,6 @@ function PlayInner() {
                   rows={1}
                   value={draft}
                   onChange={e => setDraft(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      send(draft);
-                    }
-                  }}
                   placeholder="写一句你想做的…"
                   disabled={busy}
                 />
@@ -1764,6 +1773,39 @@ function PlayInner() {
               </button>
               <button className="quiet" onClick={() => setInviteOpen(false)}>
                 再想想
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {regenOpen && (
+        <div className="a-mask" onClick={() => setRegenOpen(false)}>
+          <div className="a-modal" onClick={e => e.stopPropagation()}>
+            <div className="k">REGENERATE</div>
+            <div className="t">重写这一回合</div>
+            <div className="d">保留你刚才那句，只重写上一条。可以补一句要求。</div>
+            <div className="a-quote">{lastUser?.turn.text || '（没有找到上一句）'}</div>
+            <textarea
+              className="a-note"
+              value={regenNote}
+              onChange={e => setRegenNote(e.target.value)}
+              placeholder="比如：不要写成她主动；让白厄在这里出现；气氛再冷一点"
+            />
+            <div className="a-acts">
+              <button
+                className="primary"
+                disabled={busy}
+                onClick={() => {
+                  const n = regenNote;
+                  setRegenOpen(false);
+                  void regenerate(n);
+                }}
+              >
+                开始重写
+              </button>
+              <button className="quiet" onClick={() => setRegenOpen(false)}>
+                取消
               </button>
             </div>
           </div>

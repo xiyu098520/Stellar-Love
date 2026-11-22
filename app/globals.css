@@ -2442,6 +2442,8 @@ body { background: transparent; }
 }
 .play-a .a-reply textarea {
   flex: 1;
+  width: 100%;
+  box-sizing: border-box;
   min-width: 0;
   min-height: 46px;
   max-height: 132px;
@@ -2456,6 +2458,9 @@ body { background: transparent; }
   outline: none;
   resize: none;
   overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 .play-a .a-reply textarea::placeholder { color: #7d7669; }
 .play-a .a-send {
@@ -2601,6 +2606,37 @@ body { background: transparent; }
   letter-spacing: .04em;
   color: #8a8375;
 }
+.play-a .a-modal .a-quote {
+  margin-top: 12px;
+  padding: 10px 12px;
+  max-height: 76px;
+  overflow-y: auto;
+  border-left: 2px solid rgba(217, 188, 134, .28);
+  background: rgba(255, 255, 255, .03);
+  color: #a49d8f;
+  font-family: var(--sans);
+  font-size: 10px;
+  line-height: 1.8;
+  letter-spacing: .04em;
+}
+.play-a .a-modal .a-note {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 64px;
+  max-height: 140px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(217, 188, 134, .22);
+  background: rgba(8, 11, 17, .85);
+  color: #ece7dc;
+  font-family: var(--sans);
+  font-size: 11px;
+  line-height: 1.7;
+  letter-spacing: .04em;
+  outline: none;
+  resize: none;
+}
+.play-a .a-modal .a-note::placeholder { color: #6d675c; }
 .play-a .a-modal .a-acts {
   display: flex;
   flex-direction: column;
