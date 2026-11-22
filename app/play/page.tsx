@@ -20,6 +20,7 @@ import {
   listVoiceClips,
   loadSettings,
   loadWallpaper,
+  saveWallpaper,
   loadWorld,
   newId,
   putSave,
@@ -264,6 +265,10 @@ function PlayInner() {
   const [world, setWorld] = useState<World | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [wall, setWall] = useState('');
+  const [wallOpen, setWallOpen] = useState(false);
+  const [wallBlur, setWallBlur] = useState(2);
+  const [wallDim, setWallDim] = useState(45);
+  const wallFileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [draft, setDraft] = useState('');
@@ -313,6 +318,10 @@ function PlayInner() {
       setSettings(loadSettings());
       setWorld(loadWorld());
       setWall(loadWallpaper().url);
+      const bRaw = localStorage.getItem('stellar_wall_blur');
+      const dRaw = localStorage.getItem('stellar_wall_dim');
+      if (bRaw !== null) setWallBlur(Number(bRaw) || 0);
+      if (dRaw !== null) setWallDim(Number(dRaw) || 0);
       const s = saveId ? await getSave(saveId) : await latestSaveOf(loadWorld()?.id || '');
       setSave(s || null);
       if (s) setMoney(loadWallet(s.worldId, loadWorld()).money);
@@ -928,6 +937,52 @@ function PlayInner() {
     setSave(next);
   }
 
+  /** 重写这一回合：保留这句输入，只退掉上一条回复和结算，再重新生成 */
+  async function regenerate() {
+    if (!save || busy) return;
+    const u = save.undo;
+    const last = save.turns[save.turns.length - 1];
+    if (!u || !last || last.role !== 'assistant') {
+      setErr('这一回合还不能重写。');
+      return;
+    }
+    audioRef.current?.pause();
+    setSpeaking('');
+    setErr('');
+    const kept = save.turns.slice(0, -1);
+    const next: Save = {
+      ...save,
+      turns: kept,
+      state: u.state,
+      summaries: (save.summaries || []).filter(
+        s => s.turn <= kept.filter(t => t.role === 'assistant').length,
+      ),
+      undo: undefined,
+      updatedAt: Date.now(),
+    };
+    await putSave(next);
+    if (next.kind === 'route' && next.parentId && u.state?.clock) {
+      const mainSaved = await getSave(next.parentId);
+      if (mainSaved) {
+        await putSave({
+          ...mainSaved,
+          state: {
+            ...(mainSaved.state || emptyState()),
+            clock: u.state.clock,
+            time: u.state.time,
+          },
+        });
+      }
+    }
+    if (u.wallet) {
+      saveWallet(save.worldId, u.wallet);
+      setMoney(u.wallet.money);
+    }
+    setSeen(9999);
+    setSave(next);
+    await run(next);
+  }
+
   if (!save) {
     return (
       <main className="page">
@@ -1099,11 +1154,14 @@ function PlayInner() {
     };
 
     return (
-      <main
-        className="m-main"
-        style={wall ? { backgroundImage: `url("${wall}")` } : undefined}
-      >
-        <div className="m-veil" />
+      <main className="m-main">
+        {wall && (
+          <div
+            className="m-wallimg"
+            style={{ backgroundImage: `url("${wall}")`, filter: `blur(${wallBlur}px)` }}
+          />
+        )}
+        <div className="m-veil" style={wall ? { opacity: wallDim / 100 } : undefined} />
 
         <header className="m-top">
           <button className="m-back" onClick={() => router.push('/')}>返回</button>
@@ -1116,7 +1174,7 @@ function PlayInner() {
             {activeStory?.name || '模型'}
             <span>▾</span>
           </button>
-          <button className="m-gear" aria-label="设置" onClick={() => router.push('/settings')}>
+          <button className="m-gear" aria-label="封面设置" onClick={() => setWallOpen(true)}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4">
               <circle cx="12" cy="12" r="3" />
               <path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6L17 7M7 17l-1.4 1.4" strokeLinecap="round" />
@@ -1168,11 +1226,18 @@ function PlayInner() {
         )}
 
         <div className="m-now">
+          <button className="m-again" onClick={regenerate} disabled={busy || !save.undo}>
+            重写
+          </button>
           <div className="when">
             {save.state?.clock
               ? `${save.state.clock.y}年${save.state.clock.m}月${save.state.clock.d}日`
               : '时间未定'}
-            <small>{save.state?.time || ''}</small>
+            <small>
+              {save.state?.clock
+                ? `${String(Math.floor(save.state.clock.min / 60)).padStart(2, '0')}:${String(save.state.clock.min % 60).padStart(2, '0')}`
+                : ''}
+            </small>
           </div>
           {save.state?.place && <div className="where">{save.state.place}</div>}
           {onStage.length > 0 && (
@@ -1740,6 +1805,79 @@ function PlayInner() {
             </div>
           </div>
         </div>
+      )}
+
+      {wallOpen && (
+        <section className="m-wall">
+          <div className="m-wall-top">
+            <button onClick={() => setWallOpen(false)}>返回</button>
+            <div className="t">封面设置</div>
+          </div>
+          <div className="m-wall-body">
+            <div className="lb">壁纸</div>
+            <div className="row">
+              <button onClick={() => wallFileRef.current?.click()}>选择图片</button>
+              <button
+                className="ghost"
+                onClick={() => {
+                  saveWallpaper('', '');
+                  setWall('');
+                }}
+              >
+                清除
+              </button>
+            </div>
+            <div className="sl">
+              <span>模糊</span>
+              <input
+                type="range"
+                min={0}
+                max={12}
+                value={wallBlur}
+                onChange={e => {
+                  const v = Number(e.target.value);
+                  setWallBlur(v);
+                  localStorage.setItem('stellar_wall_blur', String(v));
+                }}
+              />
+            </div>
+            <div className="sl">
+              <span>暗度</span>
+              <input
+                type="range"
+                min={0}
+                max={90}
+                value={wallDim}
+                onChange={e => {
+                  const v = Number(e.target.value);
+                  setWallDim(v);
+                  localStorage.setItem('stellar_wall_dim', String(v));
+                }}
+              />
+            </div>
+            <div className="hint">
+              建议用手机里的竖图。壁纸只在阅读时露出，不会影响卡片和按钮的可读性。
+            </div>
+            <input
+              ref={wallFileRef}
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={e => {
+                const f = e.target.files?.[0];
+                if (!f) return;
+                const r = new FileReader();
+                r.onload = () => {
+                  const url = String(r.result || '');
+                  saveWallpaper(url, f.name);
+                  setWall(url);
+                };
+                r.readAsDataURL(f);
+                e.target.value = '';
+              }}
+            />
+          </div>
+        </section>
       )}
     </main>
   );
