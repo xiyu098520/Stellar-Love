@@ -5536,3 +5536,11 @@ html:has(.story-a) body {
 .review-panel .rv-go { color: var(--ink); }
 .review-panel .rv-undo:disabled { color: var(--ink-3); }
 
+.review-panel .rv-aff { display: grid; gap: 8px; padding: 0 20px 14px; }
+.rv-aff-row { display: flex; align-items: center; gap: 10px; }
+.rv-aff-name { flex: 0 0 52px; font-size: 11.5px; letter-spacing: .06em; color: var(--ink-2); }
+.rv-aff-bar { flex: 1; height: 3px; background: #e8dfd1; }
+.rv-aff-bar i { display: block; height: 100%; background: #a6493a; }
+.rv-aff-num { flex: 0 0 82px; text-align: right; font-family: var(--sans); font-size: 10px; color: #a6493a; }
+.rv-aff-num em { margin-left: 5px; font-style: normal; font-size: 9.5px; color: var(--ink-3); }
+

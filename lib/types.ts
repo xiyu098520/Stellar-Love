@@ -1,5 +1,6 @@
 export type Segment =
   | { type: 'narration'; text: string }
+  | { type: 'action'; text: string }
   | { type: 'dialogue'; who: string; text: string; tone?: string; ja?: string };
 
 export type Turn = {
@@ -12,6 +13,10 @@ export type Turn = {
   place?: string;
   /** 这一回合真正在场的男主角 id；用来把主线记忆按人分片 */
   with?: string;
+  /** 留给下一回合的设想：最可能到的场面、可能碰上谁 */
+  plan?: { scene?: string; cast?: string[] };
+  /** 这一回合新埋下的钩子：没回的消息、没答的话、递到手上的东西 */
+  hooks?: string[];
 };
 
 /** 玩家自己 */
@@ -354,6 +359,8 @@ export type Save = {
   state?: GameState;
   /** 每回合一条，原文还在，只是发给模型时前面几条换成摘要 */
   summaries?: TurnSummary[];
+  /** 还没兑现的事：答应未做、欠着未还、约好未到、埋下未揭 */
+  threads?: string[];
   /** 只留一级：撤回上一回合 */
   undo?: UndoSnapshot;
   /** 每回合开始前的快照，供回顾页按回合退回 */

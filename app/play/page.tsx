@@ -60,6 +60,8 @@ type ModelOut = {
   choices?: string[];
   place?: string;
   settle?: Settle | null;
+  threads?: string[];
+  plan?: { scene?: string; cast?: string[] };
 };
 
 const clipKey = (characterId: string, text: string) => `${characterId}\u0000${text}`;
@@ -669,9 +671,11 @@ function PlayInner() {
           role: 'assistant',
           text: segments.map(s => s.text).join('\n'),
           segments,
-          choices: (out?.choices || []).slice(0, 4),
+          choices: (out?.choices || []).filter(Boolean).slice(0, 2),
           time: state.time,
           place: out?.place,
+          plan: out?.plan,
+          hooks: (out?.threads || []).filter(t => t && !t.startsWith('✓')),
           // 记下这一回合在场的是谁，主线记忆好按人分片
           with: nextSave.kind === 'route' ? nextSave.routeOf : settleChar?.id,
         };
@@ -686,10 +690,24 @@ function PlayInner() {
           nextSave.kind === 'main',
         );
 
+        // 钩子：新埋的加上，兑现的删掉，旧的不动
+        const resolved = (out?.threads || [])
+          .filter(t => t.startsWith('✓'))
+          .map(t => t.replace(/^✓\s*/, '').trim())
+          .filter(Boolean);
+        const fresh = (out?.threads || []).filter(t => t && !t.startsWith('✓'));
+        const threads = [
+          ...(nextSave.threads || []).filter(
+            p => !resolved.some(r => p.includes(r) || r.includes(p)),
+          ),
+          ...fresh,
+        ].slice(-24);
+
         const done: Save = {
           ...nextSave,
           turns: [...nextSave.turns, turn],
           state: settled,
+          threads,
           undo,
           checkpoints: [
             ...(nextSave.checkpoints || []),
@@ -1362,6 +1380,25 @@ function PlayInner() {
                 <div className="rv-ch">第 {revCh} 章 · {revAssists} 回合</div>
               </div>
               <div className="rv-title">回顾</div>
+              <div className="rv-aff">
+                {(world?.characters || [])
+                  .filter(c => c.role !== 'npc')
+                  .map(c => {
+                    const v = save.state?.affinity?.[c.id] ?? 0;
+                    return (
+                      <div className="rv-aff-row" key={c.id}>
+                        <span className="rv-aff-name">{c.name}</span>
+                        <span className="rv-aff-bar">
+                          <i style={{ width: `${Math.max(0, Math.min(100, v))}%` }} />
+                        </span>
+                        <span className="rv-aff-num">
+                          {v}
+                          <em>{stageOf(v)}</em>
+                        </span>
+                      </div>
+                    );
+                  })}
+              </div>
               <div className="rv-body">
                 {revIntro && <div className="rv-intro">{revIntro}</div>}
                 <div className="rv-list">
