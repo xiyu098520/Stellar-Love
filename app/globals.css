@@ -2559,7 +2559,7 @@ body { background: transparent; }
   box-shadow: 0 0 8px rgba(217, 188, 134, .8);
 }
 
-.play-a .a-mask {
+.a-mask {
   position: absolute;
   inset: 0;
   z-index: 20;
@@ -2570,14 +2570,14 @@ body { background: transparent; }
   background: rgba(4, 6, 10, .74);
   backdrop-filter: blur(4px);
 }
-.play-a .a-modal {
+.a-modal {
   width: min(320px, 100%);
   border: 1px solid rgba(217, 188, 134, .3);
   background: #0b0e16;
   padding: 22px 18px 16px;
   position: relative;
 }
-.play-a .a-modal::before {
+.a-modal::before {
   content: "";
   position: absolute;
   top: 0;
@@ -2586,27 +2586,27 @@ body { background: transparent; }
   height: 4px;
   background: repeating-linear-gradient(90deg, rgba(217, 188, 134, .32) 0 5px, transparent 5px 11px);
 }
-.play-a .a-modal .k {
+.a-modal .k {
   font-family: var(--sans);
   font-size: 8px;
   letter-spacing: .3em;
   color: #7f7869;
 }
-.play-a .a-modal .t {
+.a-modal .t {
   margin: 7px 0 8px;
   font-family: var(--serif);
   font-size: 20px;
   letter-spacing: .16em;
   color: #eee8db;
 }
-.play-a .a-modal .d {
+.a-modal .d {
   font-family: var(--sans);
   font-size: 10px;
   line-height: 1.9;
   letter-spacing: .04em;
   color: #8a8375;
 }
-.play-a .a-modal .a-quote {
+.a-modal .a-quote {
   margin-top: 12px;
   padding: 10px 12px;
   max-height: 76px;
@@ -2619,7 +2619,7 @@ body { background: transparent; }
   line-height: 1.8;
   letter-spacing: .04em;
 }
-.play-a .a-modal .a-note {
+.a-modal .a-note {
   width: 100%;
   box-sizing: border-box;
   min-height: 64px;
@@ -2636,14 +2636,14 @@ body { background: transparent; }
   outline: none;
   resize: none;
 }
-.play-a .a-modal .a-note::placeholder { color: #6d675c; }
-.play-a .a-modal .a-acts {
+.a-modal .a-note::placeholder { color: #6d675c; }
+.a-modal .a-acts {
   display: flex;
   flex-direction: column;
   gap: 8px;
   margin-top: 16px;
 }
-.play-a .a-modal .a-acts button {
+.a-modal .a-acts button {
   padding: 11px;
   border: 1px solid rgba(217, 188, 134, .26);
   background: rgba(217, 188, 134, .06);
@@ -2652,11 +2652,11 @@ body { background: transparent; }
   font-size: 11px;
   letter-spacing: .18em;
 }
-.play-a .a-modal .a-acts button.primary {
+.a-modal .a-acts button.primary {
   color: var(--a-gold);
   border-color: rgba(217, 188, 134, .52);
 }
-.play-a .a-modal .a-acts button.quiet {
+.a-modal .a-acts button.quiet {
   border: 0;
   background: none;
   color: #6f6a5f;
@@ -4972,7 +4972,7 @@ html:has(.story-a) body {
 .m-attach button { border: 0; background: none; color: rgba(236,228,212,.45); cursor: pointer; }
 .m-input {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 6px;
   border: 1px solid rgba(201,168,112,.22);
   background: rgba(0,0,0,.28);
@@ -4987,19 +4987,29 @@ html:has(.story-a) body {
   cursor: pointer;
 }
 .m-plus.on { color: #e2c894; }
-.m-input input {
+.m-input textarea {
   flex: 1;
+  width: 100%;
+  box-sizing: border-box;
   min-width: 0;
-  padding: 8px 0;
+  min-height: 34px;
+  max-height: 120px;
+  padding: 9px 0;
   border: 0;
   background: none;
   outline: none;
+  resize: none;
+  overflow-y: auto;
   color: #f2ead9;
   font-family: var(--serif);
   font-size: 13px;
+  line-height: 1.6;
   letter-spacing: .04em;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
-.m-input input::placeholder { color: rgba(236,228,212,.28); }
+.m-input textarea::placeholder { color: rgba(236,228,212,.28); }
 .m-send {
   width: 34px;
   height: 34px;

@@ -1161,6 +1161,116 @@ function PlayInner() {
       return attach ? `${t.replace(/[，,。\s]+$/, '')}（带上${attach}）` : t;
     };
 
+    const playOverlays = (
+      <>
+        {regenOpen && (
+          <div className="a-mask" onClick={() => setRegenOpen(false)}>
+            <div className="a-modal" onClick={e => e.stopPropagation()}>
+              <div className="k">REGENERATE</div>
+              <div className="t">重写这一回合</div>
+              <div className="d">保留你刚才那句，只重写上一条。可以补一句要求。</div>
+              <div className="a-quote">{lastUser?.turn.text || '（没有找到上一句）'}</div>
+              <textarea
+                className="a-note"
+                value={regenNote}
+                onChange={e => setRegenNote(e.target.value)}
+                placeholder="比如：不要写成她主动；让白厄在这里出现；气氛再冷一点"
+              />
+              <div className="a-acts">
+                <button
+                  className="primary"
+                  disabled={busy}
+                  onClick={() => {
+                    const n = regenNote;
+                    setRegenOpen(false);
+                    void regenerate(n);
+                  }}
+                >
+                  开始重写
+                </button>
+                <button className="quiet" onClick={() => setRegenOpen(false)}>
+                  取消
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {wallOpen && (
+          <section className="m-wall">
+            <div className="m-wall-top">
+              <button onClick={() => setWallOpen(false)}>返回</button>
+              <div className="t">封面设置</div>
+            </div>
+            <div className="m-wall-body">
+              <div className="lb">壁纸</div>
+              <div className="row">
+                <button onClick={() => wallFileRef.current?.click()}>选择图片</button>
+                <button
+                  className="ghost"
+                  onClick={() => {
+                    saveWallpaper('', '');
+                    setWall('');
+                  }}
+                >
+                  清除
+                </button>
+              </div>
+              <div className="sl">
+                <span>模糊</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={12}
+                  value={wallBlur}
+                  onChange={e => {
+                    const v = Number(e.target.value);
+                    setWallBlur(v);
+                    localStorage.setItem('stellar_wall_blur', String(v));
+                  }}
+                />
+              </div>
+              <div className="sl">
+                <span>暗度</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={90}
+                  value={wallDim}
+                  onChange={e => {
+                    const v = Number(e.target.value);
+                    setWallDim(v);
+                    localStorage.setItem('stellar_wall_dim', String(v));
+                  }}
+                />
+              </div>
+              <div className="hint">
+                建议用手机里的竖图。壁纸只在阅读时露出，不会影响卡片和按钮的可读性。
+              </div>
+              <input
+                ref={wallFileRef}
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={e => {
+                  const f = e.target.files?.[0];
+                  if (!f) return;
+                  const r = new FileReader();
+                  r.onload = () => {
+                    const url = String(r.result || '');
+                    saveWallpaper(url, f.name);
+                    setWall(url);
+                  };
+                  r.readAsDataURL(f);
+                  e.target.value = '';
+                }}
+              />
+            </div>
+          </section>
+        )}
+      </>
+    );
+
     return (
       <main className="m-main">
         {wall && (
@@ -1416,18 +1526,11 @@ function PlayInner() {
             >
               ＋
             </button>
-            <input
+            <textarea
+              ref={draftRef}
+              rows={1}
               value={draft}
               onChange={e => setDraft(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Enter') {
-                  const out = compose(draft);
-                  if (out) {
-                    send(out);
-                    setAttach('');
-                  }
-                }
-              }}
               placeholder="写下你要做的事…"
               disabled={busy}
             />
@@ -1487,6 +1590,7 @@ function PlayInner() {
             </div>
           </div>
         )}
+        {playOverlays}
       </main>
     );
   }
@@ -1779,39 +1883,6 @@ function PlayInner() {
         </div>
       )}
 
-      {regenOpen && (
-        <div className="a-mask" onClick={() => setRegenOpen(false)}>
-          <div className="a-modal" onClick={e => e.stopPropagation()}>
-            <div className="k">REGENERATE</div>
-            <div className="t">重写这一回合</div>
-            <div className="d">保留你刚才那句，只重写上一条。可以补一句要求。</div>
-            <div className="a-quote">{lastUser?.turn.text || '（没有找到上一句）'}</div>
-            <textarea
-              className="a-note"
-              value={regenNote}
-              onChange={e => setRegenNote(e.target.value)}
-              placeholder="比如：不要写成她主动；让白厄在这里出现；气氛再冷一点"
-            />
-            <div className="a-acts">
-              <button
-                className="primary"
-                disabled={busy}
-                onClick={() => {
-                  const n = regenNote;
-                  setRegenOpen(false);
-                  void regenerate(n);
-                }}
-              >
-                开始重写
-              </button>
-              <button className="quiet" onClick={() => setRegenOpen(false)}>
-                取消
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {review && (
         <div className="review-mask">
           <div className="review-panel">
@@ -1847,79 +1918,6 @@ function PlayInner() {
             </div>
           </div>
         </div>
-      )}
-
-      {wallOpen && (
-        <section className="m-wall">
-          <div className="m-wall-top">
-            <button onClick={() => setWallOpen(false)}>返回</button>
-            <div className="t">封面设置</div>
-          </div>
-          <div className="m-wall-body">
-            <div className="lb">壁纸</div>
-            <div className="row">
-              <button onClick={() => wallFileRef.current?.click()}>选择图片</button>
-              <button
-                className="ghost"
-                onClick={() => {
-                  saveWallpaper('', '');
-                  setWall('');
-                }}
-              >
-                清除
-              </button>
-            </div>
-            <div className="sl">
-              <span>模糊</span>
-              <input
-                type="range"
-                min={0}
-                max={12}
-                value={wallBlur}
-                onChange={e => {
-                  const v = Number(e.target.value);
-                  setWallBlur(v);
-                  localStorage.setItem('stellar_wall_blur', String(v));
-                }}
-              />
-            </div>
-            <div className="sl">
-              <span>暗度</span>
-              <input
-                type="range"
-                min={0}
-                max={90}
-                value={wallDim}
-                onChange={e => {
-                  const v = Number(e.target.value);
-                  setWallDim(v);
-                  localStorage.setItem('stellar_wall_dim', String(v));
-                }}
-              />
-            </div>
-            <div className="hint">
-              建议用手机里的竖图。壁纸只在阅读时露出，不会影响卡片和按钮的可读性。
-            </div>
-            <input
-              ref={wallFileRef}
-              type="file"
-              accept="image/*"
-              hidden
-              onChange={e => {
-                const f = e.target.files?.[0];
-                if (!f) return;
-                const r = new FileReader();
-                r.onload = () => {
-                  const url = String(r.result || '');
-                  saveWallpaper(url, f.name);
-                  setWall(url);
-                };
-                r.readAsDataURL(f);
-                e.target.value = '';
-              }}
-            />
-          </div>
-        </section>
       )}
     </main>
   );
