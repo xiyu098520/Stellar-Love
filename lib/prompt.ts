@@ -115,7 +115,7 @@ function chapterText(world: World, save: Save): string {
   if (save.kind === 'route') {
     return [
       '【个人线】',
-      '这是主线之外的空档，只有你和他，没有案子，也没有别人来打断。',
+      '这是主线之外的空档，只有你和他，没有工作，也没有别人来打断。',
       '他不是失忆：主线里见过、说过的事，他都记得；别人不知道细节，也不会强行追问。',
       '时间一直往前，不用急着收尾；每一次见面都可以比上一次更近一点。',
       '这里报的数值是好感，按现在的数值走，不要硬压，也不要凭空跳档。',
@@ -426,6 +426,24 @@ export function routeCharacterId(save: Save): string | null {
   return save.kind === 'route' && save.routeOf ? save.routeOf : null;
 }
 
+/** 全局注入：场所、事件、配角都放进 system，不再每回合重算 */
+function staticWorldText(world: World): string {
+  const places = (world.placeList || []).filter(p => (p.content || '').trim());
+  const events = (world.events || []).filter(e => (e.content || '').trim());
+  const npcs = (world.characters || []).filter(c => c.role === 'npc' && c.name.trim());
+  return [
+    places.length
+      ? `【场所与势力】\n${places.map(p => `## ${p.title}\n${p.content.trim()}`).join('\n\n')}`
+      : '',
+    events.length
+      ? `【事件与节日】\n${events.map(e => `## ${e.title}\n${e.content.trim()}`).join('\n\n')}`
+      : '',
+    npcs.length ? `【配角】\n${npcs.map(charText).join('\n\n')}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+}
+
 export function buildSystem(world: World, save: Save, lang: 'zh' | 'ja' = 'zh'): string {
   const routeId = routeCharacterId(save);
   const leads = world.characters.filter(c => c.role !== 'npc' && c.name.trim());
@@ -448,20 +466,22 @@ ${selfText(world)}
 
 【场上可以有的人物】
 ${cast.map(charText).join('\n\n')}
+
+${staticWorldText(world)}
 ${isRoute ? '' : `
 【男主出场】
-- 男主不会无缘无故出现，更不会自己找上门。要他登场，必须有理由：她主动联系、事先约好、事情牵到他、或者他带着线索来。
+- 男主不会无缘无故出现，更不会自己找上门。要他登场，必须有理由：她主动联系、事先约好、事情牵到他、或者她去了他常在的地方。
 - 路过、顺路、恰好经过、来讨杯茶，都不算理由。
-- 第一次登场之前要先有铺垫：前一两回合提到他的名字、他的东西、他所在的地方，或者让委托人提起他。没有铺垫，就不要让他出现。
+- 第一次登场之前要先有铺垫：前一两回合提到他的名字、他的东西、他所在的地方，或者让别人提起他。没有铺垫，就不要让他出现。
 - 开场前两回合，除非她主动联系或直接去找，男主不出场。
 - 同一场可以出现多位男主，但只让一个人在说话；其他人在场就写他们的动静，不要抢话。
-- 她没去找、也没被卷进他的事时，这一回合就只写委托和日常，不要为了热闹把男主塞进来。
+- 她没去找、也没碰上他的事时，这一回合就只写工作和日常，不要为了热闹把男主塞进来。
 
 【认识程度】
 - 默认她跟这些男主还不熟。没在已经写过的回合里正式见过面，就当第一次见面写：他不知道她是谁，她也不知道他。
 - 第一次见面，不叫昵称，不叙旧，不替她回忆“上次”“之前”“又见面了”。
-- 他知道的信息只能是当场看到、听到，或者凭职业身份查得到的；不能凭空知道她的档案、能力、委托内容，也不能说“跟你档案上的一样”。
-- 有权有势的人能查到一些旧档，但也只知道档案上写的那些，不知道她的私事。
+- 他知道的信息只能是当场看到、听到，或者凭工作关系了解到的；不能凭空知道她的私事、过往、工作细节，也不能说「跟你资料上的一样」。
+- 有权有势的人能查到一些公开信息，但也只知道摆在明面上的那些，不知道她的私事。
 `}
 
 【没有名字的人】
@@ -496,44 +516,6 @@ ${FORMAT}${lang === 'ja' ? JA_RULE : ''}`;
 /** 每回合会变的部分：全部拼到最后一条用户消息里，system 一个字都不动，缓存才能一直命中 */
 export function buildTurnContext(world: World, save: Save, parentMain?: Save): string {
   const isRoute = save.kind === 'route';
-  const { recent, place } = recentText(save);
-  const npcs = world.characters.filter(c => c.role === 'npc' && c.name.trim());
-  const hits = save.state?.hits || {};
-  const idx = turnIndex(save);
-
-  const activeNpcs = npcs.filter(n => {
-    if (n.mode === 'always') return true;
-    if (n.mode === 'dynamic') {
-      const hit = hits[`npc:${n.id}`];
-      if (hit === undefined) return false;
-      return idx - hit <= (n.rounds ?? 2);
-    }
-    return (
-      (n.keywords || []).some(k => k.trim() && recent.includes(k.trim())) ||
-      recent.includes(n.name.trim())
-    );
-  });
-  // 只是人在这一带：先给一句简介，不给完整档案
-  const rosterNpcs = npcs
-    .filter(n => {
-      if (activeNpcs.includes(n)) return false;
-      return characterRegions(n).some(r => place.includes(r) || recent.includes(r));
-    })
-    .slice(0, 12);
-
-  // 人物挂着的地区：没走到、也没提到时，只给一句速查
-  const shownTitles = new Set(activeBlocks(world, save).map(b => b.title));
-  const routeId = routeCharacterId(save);
-  const castRegions = world.characters
-    .filter(c => c.role !== 'npc' && c.name.trim() && (!routeId || c.id === routeId))
-    .flatMap(characterRegions);
-  const briefPlaces = (world.placeList || [])
-    .filter(p => {
-      const t = (p.title || '').trim();
-      return t && (p.brief || '').trim() && !shownTitles.has(t) && castRegions.includes(t);
-    })
-    .slice(0, 10);
-
   const stageId = isRoute ? null : sceneLeadOf(world, save);
   const met = stageId ? save.state?.met?.[stageId] : undefined;
   const metNote = met
@@ -545,7 +527,6 @@ export function buildTurnContext(world: World, save: Save, parentMain?: Save): s
       ? `【她刚回来】
 中间隔了些日子，她有自己的事要办；别人只是各忙各的，没有谁一直在等她。开场自然带过，不要追问她做了什么，也不要替她编造。`
       : '';
-  const dyn = dynamicBlocks(world, save);
   const recap = isRoute ? publicRecap(parentMain, save.routeOf || null) : '';
   // 上一回合自己对下一场的设想：只是打算，走向变了就作废
   const lastPlan = [...save.turns]
@@ -568,16 +549,6 @@ export function buildTurnContext(world: World, save: Save, parentMain?: Save): s
       : '',
     planBits.length
       ? `【上一回合的设想】\n${planBits.join('；')}。只是打算，还没发生；真按这个走就先铺垫再让人露面，走岔了就作废。`
-      : '',
-    briefPlaces.length
-      ? `【地区速查】\n${briefPlaces.map(p => `- ${p.title}：${(p.brief || '').trim()}`).join('\n')}\n（这些地方跟他或她有关，但这一场还没去、也没提到，所以只给一句概览；真要过去，或她提起了，再展开完整设定。）`
-      : '',
-    dyn.length ? dyn.map(b => `## ${b.title}\n${b.content}`).join('\n\n') : '',
-    activeNpcs.length
-      ? `【本回合可以出现的配角】\n${activeNpcs.map(charText).join('\n\n')}\n（配角只在需要的时候出现，不抢主线，不写成恋爱对象。）`
-      : '',
-    rosterNpcs.length
-      ? `【这一带的人】\n${rosterNpcs.map(n => `- ${n.name}：${n.brief || n.identity || '住在这片区域的人'}`).join('\n')}\n（只是让你知道这一带有哪些人，不必都出场；要跟其中谁说话，就点他的名字，下回合会给完整档案。没点名的只当背景。）`
       : '',
     recap
       ? `【你们在主线里一起经历过的事】\n这些只有公开层面的事，发生在主线里；你们私下怎么相处不在其中，也不要主动提起。\n${recap}`
@@ -749,7 +720,7 @@ export function buildSummaryMessages(
 const CHAPTER_SUMMARY_RULE = `你在给一段中文乙女游戏剧情做章节回顾。只写事实，不写文笔。
 要求：
 - 三百字以内，能更短就短，不要硬凑。
-- 按顺序写清这一章发生了什么：接了什么委托、查到什么、见了谁、答应了什么、关系有什么变化。
+- 按顺序写清这一章发生了什么：见了谁、做了什么、答应了什么、关系有什么变化。
 - 钱写清：谁给谁多少、为什么。
 - 重要的物品、线索、约定写清楚。
 - 称呼变化、身份线索、关系变化，一句话带过。
