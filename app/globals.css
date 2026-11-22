@@ -5441,6 +5441,11 @@ html:has(.story-a) body {
 .m-main .m-menu button.on b { color: #a6493a; }
 .m-main .m-menu-empty { color: var(--ink-3); }
 
+.m-main .m-now .when { color: var(--ink); }
+.m-main .m-now .when small { color: var(--ink-3); }
+.m-main .m-now .where { color: var(--ink-3); }
+.m-main .m-now .cast { color: #a6493a; }
+
 .m-main .m-story { padding: 16px 22px 20px; }
 .m-main .m-narr { color: var(--ink-2); }
 .m-main .m-say { border-left-color: #d9cbb8; }
