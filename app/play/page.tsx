@@ -360,8 +360,10 @@ function PlayInner() {
     if (readMode) window.scrollTo({ top: 0 });
   }, [readMode]);
 
-  const lastAssistant = [...(save?.turns || [])].reverse().find(t => t.role === 'assistant');
-  const choices = lastAssistant?.choices || [];
+  // 选项只跟最新一条回复走：她一发送，旧选项立刻收掉，等下一段回复再出现
+  const turns = save?.turns || [];
+  const tail = turns[turns.length - 1];
+  const choices = tail?.role === 'assistant' ? tail.choices || [] : [];
   /** 最近的一条约定：一直显示，到点前两小时才能点 */
   const apptInfo = (() => {
     if (!save?.state?.clock || save.kind !== 'main') return null;
